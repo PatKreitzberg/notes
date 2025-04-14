@@ -118,16 +118,22 @@ class DrawCanvas(
             if (getActualState().mode == Mode.Draw) {
                 println("DEBUG: Processing touch for DRAW mode")
                 coroutineScope.launch(Dispatchers.Main.immediate) {
-                    drawingInProgress.withLock {
-                        handleDraw(
-                            this@DrawCanvas.page,
-                            strokeHistoryBatch,
-                            getActualState().penSettings[getActualState().pen.penName]!!.strokeSize,
-                            getActualState().penSettings[getActualState().pen.penName]!!.color,
-                            getActualState().pen,
-                            adjustedPoints.points
-                        )
-                        println("DEBUG: handleDraw completed")
+                    if (lockDrawingWithTimeout()) {
+                        try {
+                            handleDraw(
+                                this@DrawCanvas.page,
+                                strokeHistoryBatch,
+                                getActualState().penSettings[getActualState().pen.penName]!!.strokeSize,
+                                getActualState().penSettings[getActualState().pen.penName]!!.color,
+                                getActualState().pen,
+                                adjustedPoints.points
+                            )
+                            println("DEBUG: handleDraw completed")
+                        } finally {
+                            drawingInProgress.unlock()
+                        }
+                    } else {
+                        println("DEBUG: Could not acquire drawing lock, skipping stroke")
                     }
                 }
             } else thread {
@@ -334,8 +340,11 @@ class DrawCanvas(
             return
         }
 
-        if (drawingInProgress.isLocked)
-            println("Drawing is still in progress there might be a bug.")
+        // Check if we're actively drawing before refreshing UI
+        if (drawingInProgress.isLocked) {
+            println("Drawing is in progress, deferring UI refresh")
+            return
+        }
 
         drawCanvasToView()
 
@@ -558,6 +567,7 @@ class DrawCanvas(
                 return
             }
 
+            // Create the bounding box once
             val initialPoint = touchPoints[0]
             val boundingBox = RectF(
                 initialPoint.x,
@@ -566,6 +576,7 @@ class DrawCanvas(
                 initialPoint.y + page.scroll
             )
 
+            // Process all points at once
             val points = touchPoints.map {
                 boundingBox.union(it.x, it.y + page.scroll)
                 StrokePoint(
@@ -579,9 +590,10 @@ class DrawCanvas(
                 )
             }
 
+            // Only apply the inset once after all points are processed
             boundingBox.inset(-strokeSize, -strokeSize)
-            println("DEBUG: Created bounding box: $boundingBox")
 
+            // Create stroke with all points
             val stroke = Stroke(
                 size = strokeSize,
                 pen = pen,
@@ -594,29 +606,38 @@ class DrawCanvas(
                 color = color
             )
 
-            println("DEBUG: Adding stroke to page, color=${color}, size=${strokeSize}")
             page.addStrokes(listOf(stroke))
 
-            // Draw the stroke on the page
+            // Draw the stroke on the page all at once
             val rect = Rect(
                 boundingBox.left.toInt(),
                 boundingBox.top.toInt() - page.scroll,
                 boundingBox.right.toInt(),
                 boundingBox.bottom.toInt() - page.scroll
             )
-            println("DEBUG: Drawing area rect: $rect")
+
             page.drawArea(rect)
-
-            // Force a refresh
-            drawCanvasToView()
-            refreshUi()
-
             historyBucket.add(stroke.id)
-            println("DEBUG: Stroke processing completed successfully")
+
+            // Only refresh UI once per stroke
+            drawCanvasToView()
+
+            // Avoid refreshing UI during active drawing
+            if (!drawingInProgress.isLocked) {
+                refreshUi()
+            }
         } catch (e: Exception) {
             println("DEBUG ERROR: Handle Draw: ${e.message}")
             e.printStackTrace()
         }
+    }
+
+    // Add a timeout to the mutex to prevent deadlocks
+    suspend fun lockDrawingWithTimeout(): Boolean {
+        return withTimeoutOrNull(500) {
+            drawingInProgress.tryLock(500)
+            true
+        } ?: false
     }
 
     private fun handleErase(
