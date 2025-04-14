@@ -1,0 +1,192 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
+    id 'kotlinx-serialization'
+    id 'kotlin-parcelize'
+    //id 'com.google.gms.google-services'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+android {
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.wyldsoft.notes"
+        minSdk 29
+        targetSdk 35
+
+        versionCode 14
+        versionName '0.0.14'
+        if (project.hasProperty('IS_NEXT') && project.IS_NEXT.toBoolean()) {
+            def timestamp = new Date().format('dd.MM.YYYY-HH:mm')
+            versionName = "${versionName}-next-${timestamp}"
+        }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary true
+        }
+        ksp {
+            arg('room.schemaLocation', "$projectDir/schemas")
+        }
+
+    }
+
+    signingConfigs {
+        debug {
+            if (System.getenv("STORE_FILE") != null) {
+                storeFile file(System.getenv("STORE_FILE"))
+                storePassword System.getenv("STORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+
+                v1SigningEnabled true
+                v2SigningEnabled true
+            } else {
+                println "Running locally, skipping release signing..."
+            }
+        }
+        release {
+            if (System.getenv("STORE_FILE") != null) {
+                storeFile file(System.getenv("STORE_FILE"))
+                storePassword System.getenv("STORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+
+                v1SigningEnabled true
+                v2SigningEnabled true
+            } else {
+                println "Running locally, skipping release signing..."
+            }
+        }
+
+    }
+
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // signingConfig signingConfigs.debug
+            //buildConfigField("boolean", "IS_NEXT", IS_NEXT)
+            buildConfigField "String", "SHIPBOOK_APP_ID", "\"${System.getenv("SHIPBOOK_APP_ID") ?: "default-secret"}\""
+            buildConfigField "String", "SHIPBOOK_APP_KEY", "\"${System.getenv("SHIPBOOK_APP_KEY") ?: "default-secret2"}\""
+            if (System.getenv("STORE_FILE") != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            //buildConfigField("boolean", "IS_NEXT", IS_NEXT)
+            buildConfigField "String", "SHIPBOOK_APP_ID", "\"${System.getenv("SHIPBOOK_APP_ID") ?: "default-secret"}\""
+            buildConfigField "String", "SHIPBOOK_APP_KEY", "\"${System.getenv("SHIPBOOK_APP_KEY") ?: "default-secret2"}\""
+            if (System.getenv("STORE_FILE") != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion compose_version
+    }
+    packagingOptions {
+
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+        jniLibs {
+            pickFirsts += ['**/*.so']
+        }
+    }
+    namespace 'com.wyldsoft.notes'
+}
+
+dependencies {
+
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation "androidx.compose.ui:ui:$compose_version"
+    implementation "androidx.compose.material:material:$compose_version"
+    implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
+    implementation "androidx.compose.material:material-icons-extended:$compose_version"
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
+    implementation 'androidx.activity:activity-compose:1.10.1'
+    implementation 'androidx.fragment:fragment-ktx:1.8.6'
+
+    //implementation fileTree(dir: 'libs', include: ['*.aar'])
+    implementation('com.onyx.android.sdk:onyxsdk-device:1.2.32') {
+        exclude group: 'com.android.support', module: 'support-compat'
+    }
+    implementation('com.onyx.android.sdk:onyxsdk-pen:1.4.12') {
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+    }
+    implementation('com.onyx.android.sdk:onyxsdk-base:1.7.8') {
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+    }
+    // ML Kit dependencies
+    implementation 'com.google.mlkit:digital-ink-recognition:18.1.0'
+
+
+    // Temporary (?) fix for https://github.com/gaborauth/toolsboox-android/issues/305
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3") // required by onyx sdk
+
+    // used in RawInputManager.
+    implementation group: 'io.reactivex.rxjava2', name: 'rxjava', version: '2.2.21'
+    implementation group: 'io.reactivex.rxjava2', name: 'rxandroid', version: '2.1.1'
+    implementation libs.androidx.material3.android
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
+    debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+    debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
+    implementation "androidx.compose.runtime:runtime-livedata:$compose_version"
+    implementation "androidx.compose.runtime:runtime:$compose_version"
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0'
+
+    implementation "androidx.navigation:navigation-compose:2.8.9"
+
+    def room_version = "2.6.1"
+
+    implementation "androidx.room:room-runtime:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+    ksp "androidx.room:room-compiler:$room_version"
+
+    implementation "io.coil-kt:coil-compose:2.2.2"
+
+
+    implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
+
+    implementation platform('com.google.firebase:firebase-bom:33.11.0')
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+
+    implementation 'br.com.devsrsouza.compose.icons.android:feather:1.0.0'
+    implementation "com.beust:klaxon:5.5"
+
+    //noinspection GradleDynamicVersion
+    implementation 'io.shipbook:shipbooksdk:1.+'
+
+    // For xopp file format
+    implementation("org.apache.commons:commons-compress:1.27.1") // GZip support
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0"
+}
+
+tasks.register('printVersionName') {
+    println android.defaultConfig.versionName
+}
