@@ -20,7 +20,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.max
 
-class PageView(
+open class PageView(
     val context: Context,
     val coroutineScope: CoroutineScope,
     val id: String,
@@ -46,24 +46,38 @@ class PageView(
         windowedCanvas.drawColor(Color.WHITE)
     }
 
-    private fun indexStrokes() {
+    fun indexStrokes() {
         coroutineScope.launch {
             strokesById = hashMapOf(*strokes.map { s -> s.id to s }.toTypedArray())
         }
     }
 
-    fun addStrokes(strokesToAdd: List<Stroke>) {
+    open fun addStrokes(strokesToAdd: List<Stroke>) {
+        println("PageView.addStrokes: Adding ${strokesToAdd.size} strokes to page $id")
+
+        // Add strokes to internal list
         strokes += strokesToAdd
+
+        // Update height based on stroke bounds
         strokesToAdd.forEach {
             val bottomPlusPadding = it.bottom + 50
             if (bottomPlusPadding > height) height = bottomPlusPadding.toInt()
+
+            // Debug info
+            println("Stroke ${it.id}: pen=${it.pen.penName}, points=${it.points.size}, bounds=(${it.left},${it.top},${it.right},${it.bottom})")
         }
 
+        // Update stroke index
         indexStrokes()
+
+        // Trigger bitmap persistence
         persistBitmapDebounced()
+
+        // Force redraw the view
+        drawArea(Rect(0, 0, viewWidth, viewHeight))
     }
 
-    fun removeStrokes(strokeIds: List<String>) {
+    open fun removeStrokes(strokeIds: List<String>) {
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
         indexStrokes()
         computeHeight()
@@ -74,7 +88,7 @@ class PageView(
         return strokeIds.map { s -> strokesById[s] }
     }
 
-    private fun computeHeight() {
+    fun computeHeight() {
         if (strokes.isEmpty()) {
             height = viewHeight
             return
@@ -114,7 +128,7 @@ class PageView(
         ignoredStrokeIds: List<String> = listOf(),
         canvas: Canvas? = null
     ) {
-        println("DEBUG: drawArea called with area=$area")
+        println("DEBUG: drawArea called with area=$area, strokes.size=${strokes.size}")
         val activeCanvas = canvas ?: windowedCanvas
         val pageArea = Rect(
             area.left,
@@ -126,9 +140,10 @@ class PageView(
         activeCanvas.save()
         activeCanvas.clipRect(area)
         activeCanvas.drawColor(Color.WHITE)
-        println("DEBUG: Drawing ${strokes.size} strokes")
 
         try {
+            var drawnStrokeCount = 0
+
             strokes.forEach { stroke ->
                 if (ignoredStrokeIds.contains(stroke.id)) {
                     println("DEBUG: Skipping ignored stroke ${stroke.id}")
@@ -136,17 +151,32 @@ class PageView(
                 }
 
                 val bounds = strokeBounds(stroke)
-                println("DEBUG: Checking stroke with bounds=$bounds against pageArea=$pageArea")
+
+                // For debugging, log every 20th stroke to avoid excessive logging
+                if (drawnStrokeCount % 20 == 0) {
+                    println("DEBUG: Checking stroke #$drawnStrokeCount with bounds=$bounds against pageArea=$pageArea")
+                }
+
                 if (!bounds.intersect(pageArea)) {
-                    println("DEBUG: Stroke out of drawing area, skipping")
+                    // For debugging, log every 20th stroke to avoid excessive logging
+                    if (drawnStrokeCount % 20 == 0) {
+                        println("DEBUG: Stroke out of drawing area, skipping")
+                    }
                     return@forEach
                 }
 
-                println("DEBUG: Drawing stroke with color=${stroke.color}, size=${stroke.size}")
+                if (drawnStrokeCount % 20 == 0) {
+                    println("DEBUG: Drawing stroke with color=${stroke.color}, size=${stroke.size}")
+                }
+
                 drawStroke(
                     activeCanvas, stroke, IntOffset(0, -scroll)
                 )
+
+                drawnStrokeCount++
             }
+
+            println("DEBUG: Done drawing $drawnStrokeCount strokes")
         } catch (e: Exception) {
             println("DEBUG ERROR: Error drawing strokes: ${e.message}")
             e.printStackTrace()
