@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
+import com.wyldsoft.notes.utils.EditorState
+import com.wyldsoft.notes.utils.PageTemplate
 import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +46,41 @@ open class PageView(
         }
 
         windowedCanvas.drawColor(Color.WHITE)
+    }
+
+    fun handleUndo(state: EditorState): Boolean {
+        if (state.undoStack.isEmpty()) return false
+
+        val lastAction = state.undoStack.last()
+        val strokeIds = lastAction.map { it.id }
+
+        // Remove these strokes
+        removeStrokes(strokeIds)
+
+        // Update undo/redo stacks
+        state.undoStack = state.undoStack.dropLast(1)
+        state.redoStack = state.redoStack + listOf(lastAction)
+
+        // Redraw the view
+        drawArea(Rect(0, 0, viewWidth, viewHeight))
+        return true
+    }
+
+    fun handleRedo(state: EditorState): Boolean {
+        if (state.redoStack.isEmpty()) return false
+
+        val nextAction = state.redoStack.last()
+
+        // Add these strokes back
+        addStrokes(nextAction)
+
+        // Update undo/redo stacks
+        state.redoStack = state.redoStack.dropLast(1)
+        state.undoStack = state.undoStack + listOf(nextAction)
+
+        // Redraw the view
+        drawArea(Rect(0, 0, viewWidth, viewHeight))
+        return true
     }
 
     fun indexStrokes() {
@@ -126,7 +163,8 @@ open class PageView(
     fun drawArea(
         area: Rect,
         ignoredStrokeIds: List<String> = listOf(),
-        canvas: Canvas? = null
+        canvas: Canvas? = null,
+        editorState: EditorState? = null
     ) {
         println("DEBUG: drawArea called with area=$area, strokes.size=${strokes.size}")
         val activeCanvas = canvas ?: windowedCanvas
@@ -140,6 +178,10 @@ open class PageView(
         activeCanvas.save()
         activeCanvas.clipRect(area)
         activeCanvas.drawColor(Color.WHITE)
+
+        if (editorState != null) {
+            drawTemplate(activeCanvas, editorState.pageTemplate)
+        }
 
         try {
             var drawnStrokeCount = 0
@@ -351,6 +393,30 @@ open class PageView(
             canvas.drawPath(path, paint)
             path.reset()
             path.moveTo(point.x, point.y)
+        }
+    }
+
+    fun drawTemplate(canvas: Canvas, template: PageTemplate) {
+        when (template) {
+            PageTemplate.BLANK -> {
+                // Do nothing for blank template
+            }
+            PageTemplate.RULED -> {
+                // Draw ruled lines
+                val paint = Paint().apply {
+                    color = Color.parseColor("#DDDDDD") // Light gray
+                    strokeWidth = 1f
+                    style = Paint.Style.STROKE
+                }
+
+                // Draw horizontal lines every 30 pixels
+                val lineSpacing = 30
+                var y = lineSpacing
+                while (y < height) {
+                    canvas.drawLine(0f, y.toFloat(), width.toFloat(), y.toFloat(), paint)
+                    y += lineSpacing
+                }
+            }
         }
     }
 }

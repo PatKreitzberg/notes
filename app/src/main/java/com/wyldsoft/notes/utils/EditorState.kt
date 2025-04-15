@@ -18,6 +18,11 @@ enum class PlacementMode {
     Paste
 }
 
+enum class PageTemplate {
+    BLANK,
+    RULED
+}
+
 class SelectionState {
     var selectedStrokes by mutableStateOf<List<Stroke>?>(null)
     var selectedBitmap by mutableStateOf<Bitmap?>(null)
@@ -47,6 +52,15 @@ class EditorState(val pageId: String, val pageView: PageView) {
     var recognizedText by mutableStateOf<String?>(null)
     var selectedForRecognition by mutableStateOf<List<Stroke>>(emptyList())
 
+    // New properties for settings
+    var isSettingsDialogOpen by mutableStateOf(false)
+    var pageTemplate by mutableStateOf(PageTemplate.BLANK)
+    var isPaginationEnabled by mutableStateOf(true)
+
+    // For undo/redo functionality
+    var undoStack by mutableStateOf<List<List<Stroke>>>(emptyList())
+    var redoStack by mutableStateOf<List<List<Stroke>>>(emptyList())
+
     var penSettings by mutableStateOf(
         mapOf(
             Pen.BALLPEN.penName to PenSetting(5f, Color.BLACK),
@@ -74,6 +88,33 @@ class EditorState(val pageId: String, val pageView: PageView) {
             zoomOffsetX = 0f
             zoomOffsetY = 0f
         }
+    }
+
+    // Undo/redo functions
+    fun addToUndoStack(strokes: List<Stroke>) {
+        undoStack = undoStack + listOf(strokes)
+        // Clear redo stack when new action is performed
+        redoStack = emptyList()
+    }
+
+    fun undo(): Boolean {
+        if (undoStack.isEmpty()) return false
+
+        val lastAction = undoStack.last()
+        undoStack = undoStack.dropLast(1)
+        redoStack = redoStack + listOf(lastAction)
+
+        return true
+    }
+
+    fun redo(): Boolean {
+        if (redoStack.isEmpty()) return false
+
+        val nextAction = redoStack.last()
+        redoStack = redoStack.dropLast(1)
+        undoStack = undoStack + listOf(nextAction)
+
+        return true
     }
 
     val selectionState = SelectionState()

@@ -120,7 +120,6 @@ fun EditorView(
             editorState = EditorState(pageId = pageId, pageView = pageView!!)
 
             // Load strokes from database
-            // Load strokes from database
             try {
                 val strokes = app.strokeRepository.getDomainStrokesForPage(pageId)
                 println("Loaded ${strokes.size} strokes from database")
@@ -214,7 +213,8 @@ fun EditorView(
             )
 
             Toolbar(
-                state = editorState!!
+                state = editorState!!,
+                navController = navController // Pass navController to Toolbar
             )
         }
     }

@@ -6,10 +6,12 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Looper
+import android.util.DisplayMetrics
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.Eraser
 import com.wyldsoft.notes.utils.Mode
 import com.wyldsoft.notes.utils.Pen
@@ -35,6 +37,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
+import com.wyldsoft.notes.utils.PageTemplate
+import com.wyldsoft.notes.utils.convertDpToPixel
 
 // Get maximum pressure from the device
 val pressure = EpdController.getMaxTouchPressure()
@@ -80,6 +84,12 @@ class DrawCanvas(
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) {
             println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
+
+            // dont draw if settings is open
+            if (getActualState().isSettingsDialogOpen) {
+                return
+            }
+
             val startTime = System.currentTimeMillis()
 
             // When zoomed, we need to transform the touch points
@@ -167,6 +177,11 @@ class DrawCanvas(
 
         override fun onRawErasingTouchPointListReceived(plist: TouchPointList?) {
             if (plist == null) return
+
+            // Skip erasing if settings dialog is open
+            if (getActualState().isSettingsDialogOpen) {
+                return
+            }
 
             // Apply the same coordinate transformation for eraser that we do for pen
             val adjustedPoints = if (state.zoomScale != 1.0f) {
@@ -256,6 +271,14 @@ class DrawCanvas(
                     ),
                 )
                 refreshUiSuspend()
+            }
+        }
+
+        // dont draw if settings is open
+        coroutineScope.launch {
+            snapshotFlow { state.isSettingsDialogOpen }.collect {
+                println("Settings dialog state change: ${state.isSettingsDialogOpen}")
+                updateActiveSurface()
             }
         }
 
@@ -392,6 +415,32 @@ class DrawCanvas(
         // Clear the canvas
         canvas.drawColor(Color.WHITE)
 
+        // draw template
+        if (state.pageTemplate != PageTemplate.BLANK) {
+            // This draws the template directly
+            when (state.pageTemplate) {
+                PageTemplate.BLANK -> {
+                    // Do nothing for blank template
+                }
+                PageTemplate.RULED -> {
+                    // Draw ruled lines
+                    val paint = Paint().apply {
+                        color = Color.parseColor("#2986cc") // Light gray
+                        strokeWidth = 1f
+                        style = Paint.Style.STROKE
+                    }
+
+                    // Draw horizontal lines every 30 pixels
+                    val lineSpacing = 30
+                    var y = lineSpacing
+                    while (y < page.height) {
+                        canvas.drawLine(0f, y.toFloat(), page.width.toFloat(), y.toFloat(), paint)
+                        y += lineSpacing
+                    }
+                }
+            }
+        }
+
         // Calculate visible area based on zoom level
         val visibleRect = if (state.zoomScale != 1.0f) {
             val centerX = page.viewWidth / 2f
@@ -414,6 +463,8 @@ class DrawCanvas(
             canvas.scale(state.zoomScale, state.zoomScale)
             canvas.translate(-centerX, -centerY)
         }
+
+
 
         // Draw strokes
         for (stroke in page.strokes) {
@@ -518,12 +569,18 @@ class DrawCanvas(
 
     fun updateActiveSurface() {
         println("Update editable surface")
-        val exclusionHeight = if (state.isToolbarOpen) 40 else 0
-
         touchHelper.setRawDrawingEnabled(false)
         touchHelper.closeRawDrawing()
 
+        if (state.isSettingsDialogOpen) {
+            touchHelper.setRawDrawingEnabled(false)
+            return
+        }
+
         // Set exclude rect for toolbar
+        val exclusionHeight =
+            if (state.isToolbarOpen) convertDpToPixel(40.dp, context).toInt() else 0
+
         val toolbarExcludeRect = Rect(0, 0, page.viewWidth, exclusionHeight)
 
         touchHelper.setLimitRect(
@@ -605,7 +662,7 @@ class DrawCanvas(
                 points = points,
                 color = color
             )
-
+            state.addToUndoStack(listOf(stroke))
             page.addStrokes(listOf(stroke))
 
             // Draw the stroke on the page all at once
