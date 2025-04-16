@@ -23,6 +23,7 @@ class NotesApp : Application() {
         )
     }
 
+
     companion object {
         private var instance: NotesApp? = null
 
@@ -56,4 +57,4 @@ class NotesApp : Application() {
             e.printStackTrace()
         }
     }
-}
+    }
