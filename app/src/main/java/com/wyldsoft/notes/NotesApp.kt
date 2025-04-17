@@ -6,6 +6,7 @@ import com.wyldsoft.notes.data.NotesDatabase
 import com.wyldsoft.notes.data.repository.NotebookRepository
 import com.wyldsoft.notes.data.repository.PageRepository
 import com.wyldsoft.notes.data.repository.StrokeRepository
+import com.wyldsoft.notes.services.GoogleDriveBackupService
 import io.shipbook.shipbooksdk.ShipBook
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
@@ -23,6 +24,8 @@ class NotesApp : Application() {
         )
     }
 
+    // Google Drive backup service
+    lateinit var backupService: GoogleDriveBackupService
 
     companion object {
         private var instance: NotesApp? = null
@@ -37,6 +40,9 @@ class NotesApp : Application() {
         instance = this
         checkHiddenApiBypass()
         initializeShipbook()
+
+        // Initialize the Google Drive backup service
+        backupService = GoogleDriveBackupService(this)
     }
 
     private fun checkHiddenApiBypass() {

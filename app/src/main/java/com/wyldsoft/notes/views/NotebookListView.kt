@@ -36,7 +36,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -92,7 +91,7 @@ fun NotebookListView(navController: NavController) {
                 actions = {
                     IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                            imageVector = Icons.Default.Settings,
                             contentDescription = "Settings"
                         )
                     }

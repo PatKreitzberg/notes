@@ -10,12 +10,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.wyldsoft.notes.services.GoogleDriveBackupService
 
 @ExperimentalFoundationApi
 @ExperimentalComposeUiApi
 @Composable
 fun Router() {
     val navController = rememberNavController()
+    val backupService = GoogleDriveBackupService(androidx.compose.ui.platform.LocalContext.current)
 
     NavHost(
         navController = navController,
@@ -48,5 +50,14 @@ fun Router() {
             EditorView(navController, pageId)
         }
 
+        // Google Drive backup screen
+        composable(route = "backup") {
+            BackupScreen(navController = navController, backupService = backupService)
+        }
+
+        // Settings screen - can be implemented later
+        composable(route = "settings") {
+            SettingsView(navController)
+        }
     }
 }
