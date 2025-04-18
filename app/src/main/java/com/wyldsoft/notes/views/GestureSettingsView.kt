@@ -68,6 +68,28 @@ fun GestureSettingsView(navController: NavController) {
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.1f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Important: Gestures work with finger touch only, not with stylus input.",
+                        style = MaterialTheme.typography.subtitle1,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "This allows you to draw normally with your stylus while using finger gestures for navigation and tool selection.",
+                        style = MaterialTheme.typography.body2
+                    )
+                }
+            }
+
             Text(
                 text = "Assign actions to gestures by selecting from the dropdown menus below.",
                 style = MaterialTheme.typography.body1,

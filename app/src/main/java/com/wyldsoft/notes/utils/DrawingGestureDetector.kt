@@ -53,10 +53,19 @@ class DrawingGestureDetector(
     // Android's built-in gesture detector for basic gestures
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean {
+            // Ignore stylus inputs
+            if (isStylusEvent(e)) {
+                return false
+            }
             return true
         }
 
         override fun onDoubleTap(e: MotionEvent): Boolean {
+            // Ignore stylus inputs
+            if (isStylusEvent(e)) {
+                return false
+            }
+
             if (e.pointerCount == 1) {
                 showGestureNotification("Double tap detected")
                 return true
@@ -71,6 +80,11 @@ class DrawingGestureDetector(
             velocityY: Float
         ): Boolean {
             if (e1 == null) return false
+
+            // Ignore stylus inputs
+            if (isStylusEvent(e1) || isStylusEvent(e2)) {
+                return false
+            }
 
             val diffY = e2.y - e1.y
             val diffX = e2.x - e1.x
@@ -106,6 +120,24 @@ class DrawingGestureDetector(
         }
     })
 
+
+    /**
+     * Check if the event is from a stylus rather than a finger.
+     *
+     * @param event The motion event to check
+     * @return True if this is a stylus event, false otherwise
+     */
+    private fun isStylusEvent(event: MotionEvent): Boolean {
+        // Check all pointers in the event
+        for (i in 0 until event.pointerCount) {
+            // MotionEvent.TOOL_TYPE_STYLUS indicates stylus input
+            if (event.getToolType(i) == MotionEvent.TOOL_TYPE_STYLUS) {
+                return true
+            }
+        }
+        return false
+    }
+
     /**
      * Process touch events to detect gestures.
      *
@@ -113,6 +145,12 @@ class DrawingGestureDetector(
      * @return True if the event was consumed, false otherwise
      */
     fun onTouchEvent(event: MotionEvent): Boolean {
+        // Check if this is a stylus input - if so, ignore for gesture detection
+        val isStylusInput = isStylusEvent(event)
+        if (isStylusInput) {
+            return false
+        }
+
         // Process multi-touch events - do this first to catch multi-finger gestures
         when (event.actionMasked) {
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -140,6 +178,9 @@ class DrawingGestureDetector(
      * Handle two-finger gestures including double-tap.
      */
     private fun handleTwoFingerGesture(event: MotionEvent) {
+        // Ignore if any pointer is a stylus
+        if (isStylusEvent(event)) return
+
         val currentTime = System.currentTimeMillis()
 
         if (event.pointerCount == 2) {
@@ -169,6 +210,9 @@ class DrawingGestureDetector(
      * Handle three-finger gestures including double-tap.
      */
     private fun handleThreeFingerGesture(event: MotionEvent) {
+        // Ignore if any pointer is a stylus
+        if (isStylusEvent(event)) return
+
         val currentTime = System.currentTimeMillis()
 
         if (event.pointerCount == 3) {
@@ -198,6 +242,9 @@ class DrawingGestureDetector(
      * Handle four-finger gestures including double-tap.
      */
     private fun handleFourFingerGesture(event: MotionEvent) {
+        // Ignore if any pointer is a stylus
+        if (isStylusEvent(event)) return
+
         val currentTime = System.currentTimeMillis()
 
         if (event.pointerCount == 4) {

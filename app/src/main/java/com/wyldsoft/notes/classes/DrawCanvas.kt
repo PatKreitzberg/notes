@@ -226,19 +226,61 @@ class DrawCanvas(
         TouchHelper.create(this, inputCallback)
     }
 
-    // Override onTouchEvent to handle gestures
+    /**
+     * Override the onTouchEvent method to better handle stylus vs finger input
+     * This helps ensure that the gesture detector only processes finger events
+     */
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // First let the gesture detector process the event
-        if (::gestureDetector.isInitialized) {
-            val gestureHandled = gestureDetector.onTouchEvent(event)
-            if (gestureHandled) {
+        // First determine if this is a stylus event
+        val isStylusInput = isStylusEvent(event)
+
+        // If it's a stylus event, handle normally without passing to gesture detector
+        if (isStylusInput) {
+            // Let the parent class handle it for drawing
+            return super.onTouchEvent(event)
+        }
+
+        // Only process finger gestures when the settings dialog is not open
+        if (!state.isSettingsDialogOpen) {
+            // If not a stylus, let the gesture detector process it first
+            if (::gestureDetector.isInitialized) {
+                val gestureHandled = gestureDetector.onTouchEvent(event)
+                if (gestureHandled) {
+                    return true
+                }
+            }
+        }
+
+        // If the gesture was not handled or gesture detector not initialized,
+        // pass it to the parent
+        return super.onTouchEvent(event)
+    }
+
+    /**
+     * Determine if an event is from a stylus
+     * Uses both Android standard detection and Onyx-specific logic
+     */
+    private fun isStylusEvent(event: MotionEvent): Boolean {
+        // Check standard Android stylus detection
+        for (i in 0 until event.pointerCount) {
+            if (event.getToolType(i) == MotionEvent.TOOL_TYPE_STYLUS) {
                 return true
             }
         }
 
-        // If the gesture detector didn't handle it, pass it to the parent
-        return super.onTouchEvent(event)
+        // For Onyx devices, we can use a heuristic based on the drawing state
+        // If we're currently in drawing mode with the pen, and raw drawing is enabled
+        // (which we can check via drawingInProgress state), consider it a stylus event
+        if (state.isDrawing && state.mode == Mode.Draw) {
+            if (drawingInProgress.isLocked) {
+                // If drawing is actively in progress, it's likely the stylus
+                return true
+            }
+        }
+
+        return false
     }
+
 
     fun init() {
         println("Initializing Canvas")
