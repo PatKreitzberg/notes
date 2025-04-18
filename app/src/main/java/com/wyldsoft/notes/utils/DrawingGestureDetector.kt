@@ -14,8 +14,12 @@ import kotlinx.coroutines.launch
  * Detects common gestures like:
  * - Double tap (single finger)
  * - Double tap (two fingers)
+ * - Double tap (three fingers)
+ * - Double tap (four fingers)
  * - Swipe up
  * - Swipe down
+ * - Swipe left
+ * - Swipe right
  */
 class DrawingGestureDetector(
     context: Context,
@@ -43,6 +47,8 @@ class DrawingGestureDetector(
     private var lastTapTime = 0L
     private var lastDoubleTapTime = 0L
     private var twoFingersTapCount = 0
+    private var threeFingersTapCount = 0
+    private var fourFingersTapCount = 0
 
     // Android's built-in gesture detector for basic gestures
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -82,6 +88,19 @@ class DrawingGestureDetector(
                     return true
                 }
             }
+            // Check if the movement is more horizontal than vertical
+            else if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                if (Math.abs(diffX) > swipeThreshold) {
+                    if (diffX > 0) {
+                        // Swipe right
+                        showGestureNotification("Swipe right detected")
+                    } else {
+                        // Swipe left
+                        showGestureNotification("Swipe left detected")
+                    }
+                    return true
+                }
+            }
 
             return false
         }
@@ -94,12 +113,16 @@ class DrawingGestureDetector(
      * @return True if the event was consumed, false otherwise
      */
     fun onTouchEvent(event: MotionEvent): Boolean {
-        // Process multi-touch events - do this first to catch two-finger gestures
+        // Process multi-touch events - do this first to catch multi-finger gestures
         when (event.actionMasked) {
             MotionEvent.ACTION_POINTER_DOWN -> {
                 // Track pointer count for multi-touch gestures
                 if (event.pointerCount == 2) {
                     handleTwoFingerGesture(event)
+                } else if (event.pointerCount == 3) {
+                    handleThreeFingerGesture(event)
+                } else if (event.pointerCount == 4) {
+                    handleFourFingerGesture(event)
                 }
             }
             MotionEvent.ACTION_UP -> {
@@ -135,6 +158,64 @@ class DrawingGestureDetector(
             } else {
                 // Too much time has elapsed, so this is the first tap of a potential double tap
                 twoFingersTapCount = 1
+            }
+
+            // Update the last tap time
+            lastTapTime = currentTime
+        }
+    }
+
+    /**
+     * Handle three-finger gestures including double-tap.
+     */
+    private fun handleThreeFingerGesture(event: MotionEvent) {
+        val currentTime = System.currentTimeMillis()
+
+        if (event.pointerCount == 3) {
+            // We need to track when three fingers touch down
+            if (currentTime - lastTapTime < DOUBLE_TAP_TIMEOUT) {
+                threeFingersTapCount++
+
+                if (threeFingersTapCount == 2) {
+                    // We've detected a three-finger double tap!
+                    showGestureNotification("Three-finger double tap detected")
+
+                    // Reset the counter
+                    threeFingersTapCount = 0
+                    lastDoubleTapTime = currentTime
+                }
+            } else {
+                // Too much time has elapsed, so this is the first tap of a potential double tap
+                threeFingersTapCount = 1
+            }
+
+            // Update the last tap time
+            lastTapTime = currentTime
+        }
+    }
+
+    /**
+     * Handle four-finger gestures including double-tap.
+     */
+    private fun handleFourFingerGesture(event: MotionEvent) {
+        val currentTime = System.currentTimeMillis()
+
+        if (event.pointerCount == 4) {
+            // We need to track when four fingers touch down
+            if (currentTime - lastTapTime < DOUBLE_TAP_TIMEOUT) {
+                fourFingersTapCount++
+
+                if (fourFingersTapCount == 2) {
+                    // We've detected a four-finger double tap!
+                    showGestureNotification("Four-finger double tap detected")
+
+                    // Reset the counter
+                    fourFingersTapCount = 0
+                    lastDoubleTapTime = currentTime
+                }
+            } else {
+                // Too much time has elapsed, so this is the first tap of a potential double tap
+                fourFingersTapCount = 1
             }
 
             // Update the last tap time

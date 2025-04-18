@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,20 @@ fun SettingsView(navController: NavController) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Personalization Section
+            SectionHeader(title = "Personalization")
+
+            SettingsItem(
+                title = "Gesture Settings",
+                description = "Customize gestures for drawing and navigation",
+                icon = Icons.Default.TouchApp,
+                onClick = {
+                    navController.navigate("gesture_settings")
+                }
+            )
+
+            Divider()
+
             // Backup & Sync Section
             SectionHeader(title = "Backup & Sync")
 

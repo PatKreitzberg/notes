@@ -195,6 +195,81 @@ fun EditorView(
             DrawCanvas.refreshUi.emit(Unit)
         }
 
+        // Set up a listener for navigation signals from gesture events
+        LaunchedEffect(Unit) {
+            val snackState = com.wyldsoft.notes.classes.SnackState()
+            snackState.snackFlow.collect { snackConf ->
+                if (snackConf?.text?.startsWith("navigate:") == true) {
+                    val navigationAction = snackConf.text.removePrefix("navigate:")
+
+                    when (navigationAction) {
+                        "next_page" -> {
+                            // Get notebookId and current page info
+                            val page = app.pageRepository.getPageById(pageId)
+                            if (page != null) {
+                                val notebookId = page.notebookId
+                                val pages = app.pageRepository.getPagesForNotebook(notebookId)
+
+                                // Find current page index
+                                val currentIndex = pages.indexOfFirst { it.id == pageId }
+
+                                // If not the last page, navigate to the next page
+                                if (currentIndex < pages.size - 1) {
+                                    val nextPage = pages[currentIndex + 1]
+                                    navController.navigate("editor/${nextPage.id}") {
+                                        popUpTo("editor/$pageId") {
+                                            inclusive = true
+                                        }
+                                    }
+                                } else {
+                                    // Show notification that this is the last page
+                                    scope.launch {
+                                        com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                                            com.wyldsoft.notes.classes.SnackConf(
+                                                text = "This is the last page",
+                                                duration = 2000
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        "previous_page" -> {
+                            // Get notebookId and current page info
+                            val page = app.pageRepository.getPageById(pageId)
+                            if (page != null) {
+                                val notebookId = page.notebookId
+                                val pages = app.pageRepository.getPagesForNotebook(notebookId)
+
+                                // Find current page index
+                                val currentIndex = pages.indexOfFirst { it.id == pageId }
+
+                                // If not the first page, navigate to the previous page
+                                if (currentIndex > 0) {
+                                    val previousPage = pages[currentIndex - 1]
+                                    navController.navigate("editor/${previousPage.id}") {
+                                        popUpTo("editor/$pageId") {
+                                            inclusive = true
+                                        }
+                                    }
+                                } else {
+                                    // Show notification that this is the first page
+                                    scope.launch {
+                                        com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                                            com.wyldsoft.notes.classes.SnackConf(
+                                                text = "This is the first page",
+                                                duration = 2000
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Monitor changes that require saving to database
         DisposableEffect(pageView) {
             onDispose {

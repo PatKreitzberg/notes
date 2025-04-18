@@ -24,6 +24,9 @@ import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.pen.RawInputCallback
 import com.onyx.android.sdk.pen.TouchHelper
 import com.onyx.android.sdk.pen.data.TouchPointList
+import com.wyldsoft.notes.utils.GestureAction
+import com.wyldsoft.notes.utils.GestureSettingsManager
+import com.wyldsoft.notes.utils.GestureType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -269,9 +272,9 @@ class DrawCanvas(
         this.holder.addCallback(surfaceCallback)
     }
 
-    // Initialize the gesture detector
-
-    // Initialize the gesture detector without requiring SnackState
+    /**
+     * Initialize the gesture detector for handling drawing surface gestures.
+     */
     fun initGestureDetector() {
         gestureDetector = DrawingGestureDetector(
             context,
@@ -279,7 +282,11 @@ class DrawCanvas(
         ) { message ->
             // This callback will be invoked when a gesture is detected
             coroutineScope.launch {
+                // Show notification for the detected gesture
                 showNotification(message)
+
+                // Handle the gesture by performing the associated action
+                handleGesture(message)
             }
         }
     }
@@ -645,6 +652,154 @@ class DrawCanvas(
         }
         println("DEBUG: Pen ${pen.penName} converted to stroke style $result")
         return result
+    }
+
+
+
+    // Add this to the DrawCanvas class to handle navigation
+    fun handleNavigation(action: GestureAction) {
+        when (action) {
+            GestureAction.NEXT_PAGE -> {
+                // Implementation for navigating to the next page
+                coroutineScope.launch {
+                    // This will be caught by the SnackState observer in EditorView
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "navigate:next_page",
+                            duration = 100 // Short duration as this is just for signaling
+                        )
+                    )
+                }
+            }
+            GestureAction.PREVIOUS_PAGE -> {
+                // Implementation for navigating to the previous page
+                coroutineScope.launch {
+                    // This will be caught by the SnackState observer in EditorView
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "navigate:previous_page",
+                            duration = 100 // Short duration as this is just for signaling
+                        )
+                    )
+                }
+            }
+            else -> {
+                // Handle other actions in the performAction method
+                performAction(action)
+            }
+        }
+    }
+
+    // Modify the handleGesture method to use handleNavigation for navigation actions
+    fun handleGesture(gesture: String) {
+        println("Detected gesture: $gesture")
+        val context = this.context
+        val gestureSettingsManager = GestureSettingsManager(context)
+
+        // Map the gesture string to a GestureType
+        val gestureType = when (gesture) {
+            "Double tap detected" -> GestureType.SINGLE_FINGER_DOUBLE_TAP
+            "Two-finger double tap detected" -> GestureType.TWO_FINGER_DOUBLE_TAP
+            "Three-finger double tap detected" -> GestureType.THREE_FINGER_DOUBLE_TAP
+            "Four-finger double tap detected" -> GestureType.FOUR_FINGER_DOUBLE_TAP
+            "Swipe up detected" -> GestureType.SWIPE_UP
+            "Swipe down detected" -> GestureType.SWIPE_DOWN
+            "Swipe left detected" -> GestureType.SWIPE_LEFT
+            "Swipe right detected" -> GestureType.SWIPE_RIGHT
+            else -> null
+        }
+
+        // If the gesture is recognized, get and perform the associated action
+        if (gestureType != null) {
+            val action = gestureSettingsManager.getActionForGesture(gestureType)
+
+            // Handle navigation actions separately
+            if (action == GestureAction.NEXT_PAGE || action == GestureAction.PREVIOUS_PAGE) {
+                handleNavigation(action)
+            } else {
+                performAction(action)
+            }
+        }
+    }
+
+    /**
+     * Perform the specified action.
+     *
+     * @param action The action to perform
+     */
+    private fun performAction(action: GestureAction) {
+        coroutineScope.launch {
+            when (action) {
+                GestureAction.UNDO -> {
+                    page.handleUndo(state)
+                    refreshUi.emit(Unit)
+                }
+                GestureAction.REDO -> {
+                    page.handleRedo(state)
+                    refreshUi.emit(Unit)
+                }
+                GestureAction.TOGGLE_TOOLBAR -> {
+                    state.isToolbarOpen = !state.isToolbarOpen
+                    updateActiveSurface()
+                }
+                GestureAction.CLEAR_PAGE -> {
+                    // Save the current strokes to undo stack before clearing
+                    if (page.strokes.isNotEmpty()) {
+                        state.addToUndoStack(page.strokes)
+                        // Clear all strokes
+                        page.removeStrokes(page.strokes.map { it.id })
+                        // Redraw the page
+                        page.drawArea(android.graphics.Rect(0, 0, page.viewWidth, page.viewHeight))
+                        refreshUi.emit(Unit)
+                    }
+                }
+                GestureAction.NEXT_PAGE -> {
+                    // This would require navigation capability
+                    showNotification("Next page action - Implement in EditorView")
+                }
+                GestureAction.PREVIOUS_PAGE -> {
+                    // This would require navigation capability
+                    showNotification("Previous page action - Implement in EditorView")
+                }
+                GestureAction.CHANGE_PEN_COLOR -> {
+                    // Cycle through some common pen colors
+                    val currentColor = state.penSettings[state.pen.penName]?.color ?: android.graphics.Color.BLACK
+                    val newColor = when (currentColor) {
+                        android.graphics.Color.BLACK -> android.graphics.Color.BLUE
+                        android.graphics.Color.BLUE -> android.graphics.Color.RED
+                        android.graphics.Color.RED -> android.graphics.Color.GREEN
+                        android.graphics.Color.GREEN -> android.graphics.Color.BLACK
+                        else -> android.graphics.Color.BLACK
+                    }
+
+                    // Update the pen color
+                    val settings = state.penSettings.toMutableMap()
+                    settings[state.pen.penName] = settings[state.pen.penName]!!.copy(color = newColor)
+                    state.penSettings = settings
+
+                    // Show notification about color change
+                    val colorName = when (newColor) {
+                        android.graphics.Color.BLACK -> "Black"
+                        android.graphics.Color.BLUE -> "Blue"
+                        android.graphics.Color.RED -> "Red"
+                        android.graphics.Color.GREEN -> "Green"
+                        else -> "Unknown"
+                    }
+                    showNotification("Pen color changed to $colorName")
+                }
+                GestureAction.TOGGLE_ERASER -> {
+                    // Toggle between drawing and erasing
+                    state.mode = if (state.mode == Mode.Draw) Mode.Erase else Mode.Draw
+                    updatePenAndStroke()
+                    refreshUi.emit(Unit)
+
+                    showNotification(if (state.mode == Mode.Erase) "Eraser enabled" else "Pen enabled")
+                }
+                GestureAction.NONE -> {
+                    // Do nothing
+                }
+            }
+        }
     }
 
     private fun handleDraw(

@@ -5,6 +5,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,7 +18,7 @@ import com.wyldsoft.notes.services.GoogleDriveBackupService
 @Composable
 fun Router() {
     val navController = rememberNavController()
-    val backupService = GoogleDriveBackupService(androidx.compose.ui.platform.LocalContext.current)
+    val backupService = GoogleDriveBackupService(LocalContext.current)
 
     NavHost(
         navController = navController,
@@ -55,9 +56,14 @@ fun Router() {
             BackupScreen(navController = navController, backupService = backupService)
         }
 
-        // Settings screen - can be implemented later
+        // Settings screen
         composable(route = "settings") {
             SettingsView(navController)
+        }
+
+        // Gesture Settings screen - new!
+        composable(route = "gesture_settings") {
+            GestureSettingsView(navController)
         }
     }
 }
