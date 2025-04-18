@@ -6,12 +6,13 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Looper
-import android.util.DisplayMetrics
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.wyldsoft.notes.utils.DrawingGestureDetector
 import com.wyldsoft.notes.utils.Eraser
 import com.wyldsoft.notes.utils.Mode
 import com.wyldsoft.notes.utils.Pen
@@ -23,18 +24,13 @@ import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.pen.RawInputCallback
 import com.onyx.android.sdk.pen.TouchHelper
 import com.onyx.android.sdk.pen.data.TouchPointList
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
 import com.wyldsoft.notes.utils.PageTemplate
@@ -56,6 +52,9 @@ class DrawCanvas(
 
     // List of drawable areas
     private var drawableRects = mutableListOf<Rect>()
+
+    // Gesture detector for the drawing surface
+    private lateinit var gestureDetector: DrawingGestureDetector
 
     companion object {
         var forceUpdate = MutableSharedFlow<Rect?>()
@@ -224,6 +223,20 @@ class DrawCanvas(
         TouchHelper.create(this, inputCallback)
     }
 
+    // Override onTouchEvent to handle gestures
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        // First let the gesture detector process the event
+        if (::gestureDetector.isInitialized) {
+            val gestureHandled = gestureDetector.onTouchEvent(event)
+            if (gestureHandled) {
+                return true
+            }
+        }
+
+        // If the gesture detector didn't handle it, pass it to the parent
+        return super.onTouchEvent(event)
+    }
+
     fun init() {
         println("Initializing Canvas")
 
@@ -254,6 +267,33 @@ class DrawCanvas(
             }
         }
         this.holder.addCallback(surfaceCallback)
+    }
+
+    // Initialize the gesture detector
+
+    // Initialize the gesture detector without requiring SnackState
+    fun initGestureDetector() {
+        gestureDetector = DrawingGestureDetector(
+            context,
+            coroutineScope
+        ) { message ->
+            // This callback will be invoked when a gesture is detected
+            coroutineScope.launch {
+                showNotification(message)
+            }
+        }
+    }
+
+    // Helper method to show notifications
+    private fun showNotification(message: String) {
+        coroutineScope.launch {
+            com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                com.wyldsoft.notes.classes.SnackConf(
+                    text = message,
+                    duration = 2000
+                )
+            )
+        }
     }
 
     fun registerObservers() {
@@ -463,8 +503,6 @@ class DrawCanvas(
             canvas.scale(state.zoomScale, state.zoomScale)
             canvas.translate(-centerX, -centerY)
         }
-
-
 
         // Draw strokes
         for (stroke in page.strokes) {

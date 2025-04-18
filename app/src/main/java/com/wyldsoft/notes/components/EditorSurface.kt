@@ -25,10 +25,12 @@ fun EditorSurface(
             .fillMaxHeight()
     ) {
         AndroidView(factory = { ctx ->
-            DrawCanvas(ctx, coroutineScope, state, page).apply {
-                init()
-                registerObservers()
-            }
+            val canvas = DrawCanvas(ctx, coroutineScope, state, page)
+            canvas.init()
+            // Now we can call initGestureDetector without parameters
+            canvas.initGestureDetector()
+            canvas.registerObservers()
+            canvas
         })
     }
 }
