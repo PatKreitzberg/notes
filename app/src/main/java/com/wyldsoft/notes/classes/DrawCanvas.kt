@@ -1,6 +1,7 @@
 package com.wyldsoft.notes.classes
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
@@ -27,6 +28,12 @@ import com.onyx.android.sdk.pen.data.TouchPointList
 import com.wyldsoft.notes.utils.GestureAction
 import com.wyldsoft.notes.utils.GestureSettingsManager
 import com.wyldsoft.notes.utils.GestureType
+import com.wyldsoft.notes.utils.HandwritingRecognitionHelper
+import com.wyldsoft.notes.utils.PageTemplate
+import com.wyldsoft.notes.utils.convertDpToPixel
+import com.wyldsoft.notes.views.EditorView
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,8 +43,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
-import com.wyldsoft.notes.utils.PageTemplate
-import com.wyldsoft.notes.utils.convertDpToPixel
+
+
+
 
 // Get maximum pressure from the device
 val pressure = EpdController.getMaxTouchPressure()
@@ -58,6 +66,23 @@ class DrawCanvas(
 
     // Gesture detector for the drawing surface
     private lateinit var gestureDetector: DrawingGestureDetector
+
+    // For selection mode
+    private var selectionStartX = 0f
+    private var selectionStartY = 0f
+    private var isSelecting = false
+    private val selectionRect = RectF()
+    private val selectionPaint = Paint().apply {
+        color = Color.parseColor("#3F51B5") // Indigo
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f)
+    }
+    private val selectionFillPaint = Paint().apply {
+        color = Color.parseColor("#3F51B5") // Indigo
+        style = Paint.Style.FILL
+        alpha = 30 // Semi-transparent
+    }
 
     companion object {
         var forceUpdate = MutableSharedFlow<Rect?>()
@@ -240,6 +265,98 @@ class DrawCanvas(
             return super.onTouchEvent(event)
         }
 
+        // Handle recognition selection mode
+        if (state.isRecognizing && state.isSelectingForRecognition) {
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Start selection
+                    selectionStartX = event.x
+                    selectionStartY = event.y
+                    isSelecting = true
+                    selectionRect.set(
+                        selectionStartX,
+                        selectionStartY,
+                        selectionStartX,
+                        selectionStartY
+                    )
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    // Update selection rectangle
+                    if (isSelecting) {
+                        selectionRect.set(
+                            min(selectionStartX, event.x),
+                            min(selectionStartY, event.y),
+                            max(selectionStartX, event.x),
+                            max(selectionStartY, event.y)
+                        )
+                        // Redraw to show selection rectangle
+                        this.holder.lockCanvas()?.let { canvas ->
+                            drawCanvasWithSelection(canvas)
+                            this.holder.unlockCanvasAndPost(canvas)
+                        }
+                        return true
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    // Finalize selection
+                    if (isSelecting) {
+                        isSelecting = false
+
+                        // Adjust for scroll position
+                        val adjustedSelectionRect = RectF(
+                            selectionRect.left,
+                            selectionRect.top + page.scroll,
+                            selectionRect.right,
+                            selectionRect.bottom + page.scroll
+                        )
+
+                        // Get strokes in the selection rectangle
+                        val selectedStrokes = selectStrokesInRect(page.strokes, adjustedSelectionRect)
+                        state.selectedForRecognition = selectedStrokes
+
+                        if (selectedStrokes.isNotEmpty()) {
+                            // Show recognition button
+                            coroutineScope.launch {
+                                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                                    com.wyldsoft.notes.classes.SnackConf(
+                                        text = "${selectedStrokes.size} strokes selected. Recognize now?",
+                                        duration = 10000,
+                                        actions = listOf(
+                                            "Recognize" to {
+                                                // Trigger recognition
+                                                recognizeSelectedStrokesInternal()
+                                            },
+                                            "Cancel" to {
+                                                // Clear selection
+                                                state.selectedForRecognition = emptyList()
+                                                state.isSelectingForRecognition = false
+                                                state.isRecognizing = false
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        } else {
+                            // No strokes selected
+                            coroutineScope.launch {
+                                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                                    com.wyldsoft.notes.classes.SnackConf(
+                                        text = "No strokes selected. Try again.",
+                                        duration = 2000
+                                    )
+                                )
+                            }
+                        }
+
+                        // Redraw without selection rectangle
+                        drawCanvasToView()
+                        return true
+                    }
+                }
+            }
+        }
+
         // Only process finger gestures when the settings dialog is not open
         if (!state.isSettingsDialogOpen) {
             // If not a stylus, let the gesture detector process it first
@@ -257,7 +374,8 @@ class DrawCanvas(
     }
 
     /**
-     * Determine if an event is from a stylus
+     * Check if an event is from a stylus rather than a finger.
+     *
      * Uses both Android standard detection and Onyx-specific logic
      */
     private fun isStylusEvent(event: MotionEvent): Boolean {
@@ -280,7 +398,6 @@ class DrawCanvas(
 
         return false
     }
-
 
     fun init() {
         println("Initializing Canvas")
@@ -501,6 +618,26 @@ class DrawCanvas(
     fun drawCanvasToView() {
         val canvas = this.holder.lockCanvas() ?: return
 
+        // Draw the contents
+        drawCanvasContents(canvas)
+
+        // If in selection mode and actively selecting, draw the selection rectangle
+        if (state.isRecognizing && state.isSelectingForRecognition && isSelecting) {
+            canvas.drawRect(selectionRect, selectionFillPaint)
+            canvas.drawRect(selectionRect, selectionPaint)
+        }
+
+        // If strokes are selected for recognition, highlight them
+        if (state.isRecognizing && state.selectedForRecognition.isNotEmpty() && !isSelecting) {
+            highlightSelectedStrokes(canvas)
+        }
+
+        // Finish rendering
+        this.holder.unlockCanvasAndPost(canvas)
+    }
+
+    // Draw the main canvas contents
+    private fun drawCanvasContents(canvas: Canvas) {
         // Clear the canvas
         canvas.drawColor(Color.WHITE)
 
@@ -597,9 +734,52 @@ class DrawCanvas(
             // Draw zoom text
             canvas.drawText(zoomText, textX, textY, textPaint)
         }
+    }
 
-        // Finish rendering
-        this.holder.unlockCanvasAndPost(canvas)
+    // Draw canvas with selection rectangle
+    private fun drawCanvasWithSelection(canvas: Canvas) {
+        // Draw normal canvas content
+        drawCanvasContents(canvas)
+
+        // Draw selection rectangle
+        canvas.drawRect(selectionRect, selectionFillPaint)
+        canvas.drawRect(selectionRect, selectionPaint)
+    }
+
+    // Highlight selected strokes
+    private fun highlightSelectedStrokes(canvas: Canvas) {
+        val highlightPaint = Paint().apply {
+            color = Color.parseColor("#3F51B5") // Indigo
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+        }
+
+        // Draw a bounding box around all selected strokes
+        if (state.selectedForRecognition.isNotEmpty()) {
+            // Get combined bounds of all selected strokes
+            val bounds = RectF(
+                state.selectedForRecognition[0].left,
+                state.selectedForRecognition[0].top,
+                state.selectedForRecognition[0].right,
+                state.selectedForRecognition[0].bottom
+            )
+
+            for (stroke in state.selectedForRecognition.drop(1)) {
+                bounds.union(stroke.left, stroke.top)
+                bounds.union(stroke.right, stroke.bottom)
+            }
+
+            // Adjust for scroll position
+            val displayBounds = RectF(
+                bounds.left,
+                bounds.top - page.scroll,
+                bounds.right,
+                bounds.bottom - page.scroll
+            )
+
+            // Draw the bounding box
+            canvas.drawRect(displayBounds, highlightPaint)
+        }
     }
 
     private suspend fun updateIsDrawing() {
@@ -695,8 +875,6 @@ class DrawCanvas(
         println("DEBUG: Pen ${pen.penName} converted to stroke style $result")
         return result
     }
-
-
 
     // Add this to the DrawCanvas class to handle navigation
     fun handleNavigation(action: GestureAction) {
@@ -840,6 +1018,88 @@ class DrawCanvas(
                 GestureAction.NONE -> {
                     // Do nothing
                 }
+            }
+        }
+    }
+
+    // Helper function to select strokes within a rectangle
+    private fun selectStrokesInRect(strokes: List<Stroke>, rect: RectF): List<Stroke> {
+        return strokes.filter { stroke ->
+            // Check if the stroke's bounding box intersects the selection rectangle
+            val strokeRect = RectF(stroke.left, stroke.top, stroke.right, stroke.bottom)
+            RectF.intersects(strokeRect, rect) &&
+                    // Make sure at least one point is inside the selection rectangle
+                    stroke.points.any { point ->
+                        rect.contains(point.x, point.y)
+                    }
+        }
+    }
+
+    // Internal method to recognize strokes
+    private fun recognizeSelectedStrokesInternal() {
+        if (state.selectedForRecognition.isEmpty()) {
+            coroutineScope.launch {
+                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                    com.wyldsoft.notes.classes.SnackConf(
+                        text = "No handwriting selected for recognition",
+                        duration = 2000
+                    )
+                )
+            }
+            return
+        }
+
+        coroutineScope.launch {
+            try {
+                // Show loading indicator
+                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                    com.wyldsoft.notes.classes.SnackConf(
+                        text = "Recognizing handwriting...",
+                        duration = 1000
+                    )
+                )
+
+                // Initialize the recognizer
+                val recognizer = com.wyldsoft.notes.classes.HandwritingRecognizer(context)
+                if (!recognizer.initialize()) {
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "Failed to initialize handwriting recognizer",
+                            duration = 3000
+                        )
+                    )
+                    return@launch
+                }
+
+                // Recognize the strokes
+                val results = recognizer.recognizeStrokes(state.selectedForRecognition)
+
+                // Update the state with recognition results
+                if (results.isNotEmpty()) {
+                    state.recognizedText = results[0] // Get the top result
+                    state.showRecognitionDialog = true
+                } else {
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "No text recognized. Try selecting clearer handwriting.",
+                            duration = 3000
+                        )
+                    )
+                }
+
+                // Clean up
+                recognizer.close()
+
+            } catch (e: Exception) {
+                println("Handwriting recognition error: ${e.message}")
+                e.printStackTrace()
+
+                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                    com.wyldsoft.notes.classes.SnackConf(
+                        text = "Recognition error: ${e.message}",
+                        duration = 3000
+                    )
+                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.wyldsoft.notes.views
 
+import android.content.Context
 import android.graphics.Rect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,8 +22,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.classes.DrawCanvas
+import com.wyldsoft.notes.classes.HandwritingRecognizer
 import com.wyldsoft.notes.classes.PageView
 import com.wyldsoft.notes.components.EditorSurface
+import com.wyldsoft.notes.components.RecognitionInstructionsDialog
+import com.wyldsoft.notes.components.RecognitionResultDialog
 import com.wyldsoft.notes.components.Toolbar
 import com.wyldsoft.notes.ui.theme.NotesTheme
 import com.wyldsoft.notes.utils.EditorState
@@ -31,14 +35,99 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.launch
 
 /**
- * Editor view for drawing on a page.
+ * Represents the editor view for drawing on a page.
+ * Now implemented as a class so it can be accessed from DrawCanvas for handwriting recognition.
+ */
+class EditorView {
+    companion object {
+        /**
+         * Recognize selected strokes to convert handwriting to text.
+         *
+         * @param state Editor state containing the selected strokes
+         * @param context Application context
+         */
+        fun recognizeSelectedStrokes(state: EditorState, context: Context) {
+            if (state.selectedForRecognition.isEmpty()) {
+                // Show message if no strokes selected
+                kotlinx.coroutines.GlobalScope.launch {
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "No handwriting selected for recognition",
+                            duration = 2000
+                        )
+                    )
+                }
+                return
+            }
+
+            // Show loading indicator
+            kotlinx.coroutines.GlobalScope.launch {
+                com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                    com.wyldsoft.notes.classes.SnackConf(
+                        text = "Recognizing handwriting...",
+                        duration = 1000
+                    )
+                )
+
+                try {
+                    // Create and initialize recognizer
+                    val recognizer = HandwritingRecognizer(context)
+                    val initialized = recognizer.initialize()
+
+                    if (!initialized) {
+                        com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                            com.wyldsoft.notes.classes.SnackConf(
+                                text = "Failed to initialize handwriting recognizer",
+                                duration = 3000
+                            )
+                        )
+                        return@launch
+                    }
+
+                    // Recognize the strokes
+                    val results = recognizer.recognizeStrokes(state.selectedForRecognition)
+
+                    // Update state with results
+                    if (results.isNotEmpty()) {
+                        state.recognizedText = results[0] // Top result
+                        state.showRecognitionDialog = true
+                    } else {
+                        com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                            com.wyldsoft.notes.classes.SnackConf(
+                                text = "No text recognized. Try selecting clearer handwriting.",
+                                duration = 3000
+                            )
+                        )
+                    }
+
+                    // Clean up
+                    recognizer.close()
+
+                } catch (e: Exception) {
+                    println("Handwriting recognition error: ${e.message}")
+                    e.printStackTrace()
+
+                    com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                        com.wyldsoft.notes.classes.SnackConf(
+                            text = "Recognition error: ${e.message}",
+                            duration = 3000
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Editor view composable for drawing on a page.
  *
  * @param navController Navigation controller for navigating between screens
  * @param pageId ID of the page to edit
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun EditorView(
+fun EditorViewComposable(
     navController: NavController,
     pageId: String
 ) {
@@ -289,8 +378,49 @@ fun EditorView(
 
             Toolbar(
                 state = editorState!!,
-                navController = navController // Pass navController to Toolbar
+                navController = navController
             )
+
+            // Show recognition instructions dialog
+            if (editorState!!.showRecognitionInstructions) {
+                RecognitionInstructionsDialog(
+                    onDismiss = {
+                        editorState!!.showRecognitionInstructions = false
+                        editorState!!.isRecognizing = false
+                    },
+                    onConfirm = {
+                        editorState!!.showRecognitionInstructions = false
+                        editorState!!.isRecognizing = true
+                        editorState!!.isSelectingForRecognition = true
+
+                        // Show notification about selection mode
+                        scope.launch {
+                            com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
+                                com.wyldsoft.notes.classes.SnackConf(
+                                    text = "Draw a selection around text to recognize",
+                                    duration = 3000
+                                )
+                            )
+                        }
+                    }
+                )
+            }
+
+            // Show recognition results dialog
+            if (editorState!!.showRecognitionDialog && editorState!!.recognizedText != null) {
+                RecognitionResultDialog(
+                    state = editorState!!,
+                    onDismiss = {
+                        editorState!!.showRecognitionDialog = false
+                        editorState!!.isRecognizing = false
+                        editorState!!.selectedForRecognition = emptyList()
+                    },
+                    onRetry = {
+                        // Keep the same selection but retry recognition
+                        EditorView.recognizeSelectedStrokes(editorState!!, context)
+                    }
+                )
+            }
         }
     }
 }

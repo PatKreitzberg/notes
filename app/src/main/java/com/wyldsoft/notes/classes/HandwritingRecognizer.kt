@@ -127,6 +127,13 @@ class HandwritingRecognizer(
 
     // --- recognizeStrokes and close methods remain the same as the previous version ---
 
+    /**
+     * Recognize strokes and convert to text.
+     *
+     * @param strokes The list of strokes to recognize
+     * @return List of recognized text candidates, ordered by confidence
+     * @throws IllegalStateException if the recognizer is not initialized
+     */
     suspend fun recognizeStrokes(strokes: List<Stroke>): List<String> {
         if (!isInitialized || recognizer == null) {
             throw IllegalStateException("Recognizer not initialized. Call initialize() first.")
@@ -138,25 +145,35 @@ class HandwritingRecognizer(
 
         val inkBuilder = Ink.builder()
 
-        // Convert app's strokes to ML Kit's Ink format
-        strokes.forEach { appStroke ->
-            val strokeBuilder = Ink.Stroke.builder()
-            if (appStroke.points.isNotEmpty()) {
-                appStroke.points.forEach { point ->
-                    // *** THE FIX IS HERE ***
-                    // Use Ink.Point.create instead of Ink.Point.builder()
-                    strokeBuilder.addPoint(
-                        Ink.Point.create(point.x, point.y, point.timestamp)
-                    )
-                }
-                // Only add the stroke if it has points after processing
-                if(strokeBuilder.build().points.isNotEmpty()){ // Check if points were actually added
-                    inkBuilder.addStroke(strokeBuilder.build())
+        // Group strokes that are close together horizontally
+        // This helps with recognizing words or letters that are part of the same text
+        val groupedStrokes = groupStrokesByProximity(strokes)
+
+        // Sort grouped strokes by their horizontal position (left to right)
+        val sortedGroups = groupedStrokes.sortedBy { group ->
+            group.minOf { it.left }
+        }
+
+        // Convert app's strokes to ML Kit's Ink format, preserving the grouping and ordering
+        for (group in sortedGroups) {
+            for (appStroke in group) {
+                val strokeBuilder = Ink.Stroke.builder()
+                if (appStroke.points.isNotEmpty()) {
+                    appStroke.points.forEach { point ->
+                        // Use Ink.Point.create instead of Ink.Point.builder()
+                        strokeBuilder.addPoint(
+                            Ink.Point.create(point.x, point.y, point.timestamp)
+                        )
+                    }
+                    // Only add the stroke if it has points after processing
+                    if(strokeBuilder.build().points.isNotEmpty()){
+                        inkBuilder.addStroke(strokeBuilder.build())
+                    } else {
+                        Log.w(TAG,"Stroke skipped because it resulted in zero points after conversion.")
+                    }
                 } else {
-                    Log.w(TAG,"Stroke skipped because it resulted in zero points after conversion.")
+                    Log.w(TAG, "Skipping empty stroke (no points initially).")
                 }
-            } else {
-                Log.w(TAG, "Skipping empty stroke (no points initially).")
             }
         }
 
@@ -199,6 +216,46 @@ class HandwritingRecognizer(
             Log.e(TAG, "Error during recognition suspendCancellableCoroutine: ${e.message}", e)
             emptyList() // Return empty list on other errors during the coroutine bridge
         }
+    }
+
+    /**
+     * Group strokes that are likely part of the same text.
+     * This helps improve recognition accuracy for handwritten text.
+     *
+     * @param strokes The list of strokes to group
+     * @return List of grouped strokes
+     */
+    private fun groupStrokesByProximity(strokes: List<Stroke>): List<List<Stroke>> {
+        if (strokes.isEmpty()) return emptyList()
+
+        // Sort strokes by their left coordinate (horizontal position)
+        val sortedStrokes = strokes.sortedBy { it.left }
+
+        val groups = mutableListOf<MutableList<Stroke>>()
+        var currentGroup = mutableListOf(sortedStrokes[0])
+        groups.add(currentGroup)
+
+        // Distance threshold for grouping strokes (horizontally)
+        // Adjust this value based on your app's needs
+        val horizontalThreshold = 50f
+
+        // Group strokes that are close horizontally
+        for (i in 1 until sortedStrokes.size) {
+            val currentStroke = sortedStrokes[i]
+            val lastStroke = currentGroup.last()
+
+            // Check if current stroke is close enough to the last stroke in the current group
+            if (currentStroke.left - lastStroke.right < horizontalThreshold) {
+                // Add to current group if close enough
+                currentGroup.add(currentStroke)
+            } else {
+                // Start a new group if too far
+                currentGroup = mutableListOf(currentStroke)
+                groups.add(currentGroup)
+            }
+        }
+
+        return groups
     }
 
 

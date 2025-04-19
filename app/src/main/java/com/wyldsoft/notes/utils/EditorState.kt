@@ -9,6 +9,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.classes.PageView
 
+
+
+
+
 enum class Mode {
     Draw, Erase
 }
@@ -47,10 +51,14 @@ class EditorState(val pageId: String, val pageView: PageView) {
     var eraser by mutableStateOf(Eraser.PEN)
     var isDrawing by mutableStateOf(true)
     var isToolbarOpen by mutableStateOf(false)
-    // handwriting recognition
+
+    // Handwriting recognition
     var isRecognizing by mutableStateOf(false)
+    var isSelectingForRecognition by mutableStateOf(false)
     var recognizedText by mutableStateOf<String?>(null)
     var selectedForRecognition by mutableStateOf<List<Stroke>>(emptyList())
+    var showRecognitionDialog by mutableStateOf(false)
+    var showRecognitionInstructions by mutableStateOf(false)
 
     // New properties for settings
     var isSettingsDialogOpen by mutableStateOf(false)

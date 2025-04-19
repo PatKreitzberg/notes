@@ -48,7 +48,7 @@ fun Router() {
             arguments = listOf(navArgument("pageId") { type = NavType.StringType })
         ) { backStackEntry ->
             val pageId = backStackEntry.arguments?.getString("pageId") ?: return@composable
-            EditorView(navController, pageId)
+            EditorViewComposable(navController, pageId)
         }
 
         // Google Drive backup screen
@@ -64,6 +64,15 @@ fun Router() {
         // Gesture Settings screen - new!
         composable(route = "gesture_settings") {
             GestureSettingsView(navController)
+        }
+
+        // Editor for a specific page
+        composable(
+            route = "editor/{pageId}",
+            arguments = listOf(navArgument("pageId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val pageId = backStackEntry.arguments?.getString("pageId") ?: return@composable
+            EditorViewComposable(navController, pageId)
         }
     }
 }

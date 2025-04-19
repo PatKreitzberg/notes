@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
@@ -50,6 +51,16 @@ import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.PenSetting
 import com.wyldsoft.notes.utils.noRippleClickable
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.VisibilityOff
+
 
 @Composable
 fun Toolbar(
@@ -164,7 +175,6 @@ fun Toolbar(
                     )
                 }
 
-                // Settings button - NEW
                 ToolbarButton(
                     onSelect = {
                         state.isSettingsDialogOpen = true
@@ -236,6 +246,25 @@ fun Toolbar(
                     imageVector = Icons.Default.Redo,
                     contentDescription = "Redo",
                     isEnabled = state.redoStack.isNotEmpty()
+                )
+
+                // Text recognition button
+                ToolbarButton(
+                    onSelect = {
+                        // Toggle recognition mode
+                        if (state.isRecognizing) {
+                            // Exit recognition mode
+                            state.isRecognizing = false
+                            state.isSelectingForRecognition = false
+                            state.selectedForRecognition = emptyList()
+                        } else {
+                            // Enter recognition mode - show instructions first
+                            state.showRecognitionInstructions = true
+                        }
+                    },
+                    imageVector = Icons.Default.TextFields,
+                    isSelected = state.isRecognizing,
+                    contentDescription = "Recognize Handwriting"
                 )
             }
 
