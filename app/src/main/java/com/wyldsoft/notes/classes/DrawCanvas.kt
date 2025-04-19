@@ -13,7 +13,7 @@ import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.utils.DrawingGestureDetector
+import com.wyldsoft.notes.gestures.DrawingGestureDetector
 import com.wyldsoft.notes.utils.Eraser
 import com.wyldsoft.notes.utils.Mode
 import com.wyldsoft.notes.utils.Pen
@@ -25,13 +25,12 @@ import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.pen.RawInputCallback
 import com.onyx.android.sdk.pen.TouchHelper
 import com.onyx.android.sdk.pen.data.TouchPointList
-import com.wyldsoft.notes.utils.GestureAction
-import com.wyldsoft.notes.utils.GestureSettingsManager
-import com.wyldsoft.notes.utils.GestureType
-import com.wyldsoft.notes.utils.HandwritingRecognitionHelper
+import com.wyldsoft.notes.gestures.GestureAction
+import com.wyldsoft.notes.gestures.GestureSettingsManager
+import com.wyldsoft.notes.gestures.GestureType
+import com.wyldsoft.notes.handwritingrecognition.HandwritingRecognizer
 import com.wyldsoft.notes.utils.PageTemplate
 import com.wyldsoft.notes.utils.convertDpToPixel
-import com.wyldsoft.notes.views.EditorView
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
@@ -1060,7 +1059,7 @@ class DrawCanvas(
                 )
 
                 // Initialize the recognizer
-                val recognizer = com.wyldsoft.notes.classes.HandwritingRecognizer(context)
+                val recognizer = HandwritingRecognizer(context)
                 if (!recognizer.initialize()) {
                     com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
                         com.wyldsoft.notes.classes.SnackConf(

@@ -1,9 +1,8 @@
-package com.wyldsoft.notes.utils
+package com.wyldsoft.notes.gestures
 
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**

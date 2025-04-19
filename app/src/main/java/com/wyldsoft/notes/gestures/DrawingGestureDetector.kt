@@ -1,12 +1,11 @@
-package com.wyldsoft.notes.utils
+package com.wyldsoft.notes.gestures
 
 import android.content.Context
 import android.view.GestureDetector
 import android.view.MotionEvent
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.classes.SnackConf
+import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * Custom gesture detector for the drawing surface.

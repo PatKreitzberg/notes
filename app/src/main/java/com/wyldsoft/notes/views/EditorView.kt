@@ -22,11 +22,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.classes.DrawCanvas
-import com.wyldsoft.notes.classes.HandwritingRecognizer
+import com.wyldsoft.notes.handwritingrecognition.HandwritingRecognizer
 import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.classes.SnackConf
+import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.components.EditorSurface
-import com.wyldsoft.notes.components.RecognitionInstructionsDialog
-import com.wyldsoft.notes.components.RecognitionResultDialog
+import com.wyldsoft.notes.handwritingrecognition.RecognitionInstructionsDialog
+import com.wyldsoft.notes.handwritingrecognition.RecognitionResultDialog
 import com.wyldsoft.notes.components.Toolbar
 import com.wyldsoft.notes.ui.theme.NotesTheme
 import com.wyldsoft.notes.utils.EditorState
@@ -395,8 +397,8 @@ fun EditorViewComposable(
 
                         // Show notification about selection mode
                         scope.launch {
-                            com.wyldsoft.notes.classes.SnackState.globalSnackFlow.emit(
-                                com.wyldsoft.notes.classes.SnackConf(
+                            SnackState.globalSnackFlow.emit(
+                                SnackConf(
                                     text = "Draw a selection around text to recognize",
                                     duration = 3000
                                 )

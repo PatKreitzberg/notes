@@ -1,10 +1,10 @@
 // Create a new file HandwritingRecognitionHelper.kt
-package com.wyldsoft.notes.utils
+package com.wyldsoft.notes.handwritingrecognition
 
 import android.content.Context
-import com.wyldsoft.notes.classes.HandwritingRecognizer
 import com.wyldsoft.notes.classes.SnackConf
 import com.wyldsoft.notes.classes.SnackState
+import com.wyldsoft.notes.utils.EditorState
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 

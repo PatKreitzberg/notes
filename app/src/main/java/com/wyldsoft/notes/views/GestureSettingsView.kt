@@ -16,10 +16,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.wyldsoft.notes.utils.GestureAction
-import com.wyldsoft.notes.utils.GestureMapping
-import com.wyldsoft.notes.utils.GestureSettingsManager
-import com.wyldsoft.notes.utils.GestureType
+import com.wyldsoft.notes.gestures.GestureAction
+import com.wyldsoft.notes.gestures.GestureMapping
+import com.wyldsoft.notes.gestures.GestureSettingsManager
+import com.wyldsoft.notes.gestures.GestureType
 
 /**
  * Screen for configuring gesture mappings.
