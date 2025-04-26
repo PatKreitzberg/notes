@@ -28,6 +28,39 @@ class DrawingManager(private val page: PageView) {
 
     private val strokeHistoryBatch = mutableListOf<String>()
 
+    private fun createBoundingBox(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>, strokeSize: Float): RectF {
+        val initialPoint = touchPoints.firstOrNull() ?: return RectF()
+        val boundingBox = RectF(
+            initialPoint.x,
+            initialPoint.y,
+            initialPoint.x,
+            initialPoint.y
+        )
+
+        touchPoints.forEach { point ->
+            boundingBox.union(point.x, point.y)
+        }
+
+        // Apply inset for stroke size
+        boundingBox.inset(-strokeSize, -strokeSize)
+        return boundingBox
+    }
+
+    private fun convertToStrokePoints(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>): List<StrokePoint> {
+        return touchPoints.map { point ->
+            StrokePoint(
+                x = point.x,
+                y = point.y,
+                pressure = point.pressure,
+                size = point.size,
+                tiltX = point.tiltX,
+                tiltY = point.tiltY,
+                timestamp = point.timestamp,
+            )
+        }
+    }
+
+    // Updated handleDraw method that uses the helper functions
     fun handleDraw(
         strokeSize: Float,
         color: Int,
@@ -41,31 +74,9 @@ class DrawingManager(private val page: PageView) {
                 return
             }
 
-            // Create the bounding box once
-            val initialPoint = touchPoints[0]
-            val boundingBox = RectF(
-                initialPoint.x,
-                initialPoint.y,
-                initialPoint.x,
-                initialPoint.y
-            )
-
-            // Process all points at once
-            val points = touchPoints.map {
-                boundingBox.union(it.x, it.y)
-                StrokePoint(
-                    x = it.x,
-                    y = it.y,
-                    pressure = it.pressure,
-                    size = it.size,
-                    tiltX = it.tiltX,
-                    tiltY = it.tiltY,
-                    timestamp = it.timestamp,
-                )
-            }
-
-            // Only apply the inset once after all points are processed
-            boundingBox.inset(-strokeSize, -strokeSize)
+            // Create bounding box and convert points
+            val boundingBox = createBoundingBox(touchPoints, strokeSize)
+            val points = convertToStrokePoints(touchPoints)
 
             // Create stroke with all points
             val stroke = Stroke(
@@ -82,7 +93,7 @@ class DrawingManager(private val page: PageView) {
 
             page.addStrokes(listOf(stroke))
 
-            // Draw the stroke on the page all at once
+            // Draw the stroke on the page
             val rect = Rect(
                 boundingBox.left.toInt(),
                 boundingBox.top.toInt(),

@@ -11,6 +11,7 @@ import com.onyx.android.sdk.pen.TouchHelper
 import com.onyx.android.sdk.pen.data.TouchPointList
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.Mode
+import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
+
+class PenStyleConverter {
+    companion object {
+        // Map each pen type to the corresponding Onyx SDK stroke style
+        private val penStyleMap = mapOf(
+            Pen.BALLPEN to com.onyx.android.sdk.pen.style.StrokeStyle.PENCIL,
+            Pen.MARKER to com.onyx.android.sdk.pen.style.StrokeStyle.MARKER,
+            Pen.FOUNTAIN to com.onyx.android.sdk.pen.style.StrokeStyle.FOUNTAIN
+        )
+
+        fun convertPenToStrokeStyle(pen: Pen): Int {
+            return penStyleMap[pen] ?: com.onyx.android.sdk.pen.style.StrokeStyle.PENCIL
+        }
+    }
+}
 
 /**
  * Handles touch events and delegates them to appropriate handlers.
@@ -213,14 +229,9 @@ class TouchEventHandler(
             e.printStackTrace()
         }
     }
-
-    private fun penToStroke(pen: com.wyldsoft.notes.utils.Pen): Int {
+    private fun penToStroke(pen: Pen): Int {
         println("DEBUG: Converting pen ${pen.penName} to stroke style")
-        val result = when (pen) {
-            com.wyldsoft.notes.utils.Pen.BALLPEN -> com.onyx.android.sdk.pen.style.StrokeStyle.PENCIL
-            com.wyldsoft.notes.utils.Pen.MARKER -> com.onyx.android.sdk.pen.style.StrokeStyle.MARKER
-            com.wyldsoft.notes.utils.Pen.FOUNTAIN -> com.onyx.android.sdk.pen.style.StrokeStyle.FOUNTAIN
-        }
+        val result = PenStyleConverter.convertPenToStrokeStyle(pen)
         println("DEBUG: Pen ${pen.penName} converted to stroke style $result")
         return result
     }
