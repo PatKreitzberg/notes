@@ -29,7 +29,8 @@ class TouchEventHandler(
     private val surfaceView: SurfaceView,
     private val coroutineScope: CoroutineScope,
     private val state: EditorState,
-    private val drawingManager: DrawingManager
+    private val drawingManager: DrawingManager,
+    private val canvasRenderer: CanvasRenderer  // Added parameter
 ) {
     // Get maximum pressure from the device
     private val pressure = EpdController.getMaxTouchPressure()
@@ -67,6 +68,9 @@ class TouchEventHandler(
                                 points.points
                             )
                             println("DEBUG: handleDraw completed")
+
+                            // Ensure we render the result immediately
+                            canvasRenderer.drawCanvasToView()
                         } finally {
                             DrawingManager.drawingInProgress.unlock()
                         }
@@ -83,7 +87,14 @@ class TouchEventHandler(
                         erasePoints,
                         eraser = state.eraser
                     )
-                    onDrawingCompleted()
+
+                    // Important: Immediately render the erasing results
+                    canvasRenderer.drawCanvasToView()
+
+                    // Force a UI refresh to ensure changes are visible
+                    coroutineScope.launch {
+                        DrawingManager.refreshUi.emit(Unit)
+                    }
                 }
             }
         }
@@ -98,13 +109,27 @@ class TouchEventHandler(
                 points,
                 eraser = state.eraser
             )
-            onDrawingCompleted()
+
+            // Ensure immediate visual feedback
+            canvasRenderer.drawCanvasToView()
+
+            // Force UI refresh
+            coroutineScope.launch {
+                DrawingManager.refreshUi.emit(Unit)
+            }
         }
 
         override fun onRawErasingTouchPointMoveReceived(p0: com.onyx.android.sdk.data.note.TouchPoint?) {}
         override fun onPenUpRefresh(refreshRect: RectF?) {
             super.onPenUpRefresh(refreshRect)
+
+            // Ensure UI is refreshed when pen is lifted
+            canvasRenderer.drawCanvasToView()
+            coroutineScope.launch {
+                DrawingManager.refreshUi.emit(Unit)
+            }
         }
+
         override fun onPenActive(point: com.onyx.android.sdk.data.note.TouchPoint?) {
             super.onPenActive(point)
         }
@@ -116,7 +141,10 @@ class TouchEventHandler(
     }
 
     private fun onDrawingCompleted() {
-        // Let the canvas know to refresh the view
+        // Let the canvas know to refresh the view with immediate visual feedback
+        canvasRenderer.drawCanvasToView()
+
+        // Emit refresh signal
         coroutineScope.launch {
             DrawingManager.refreshUi.emit(Unit)
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
+import com.wyldsoft.notes.classes.drawing.CanvasRenderer
 import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.classes.drawing.TouchEventHandler
 import com.wyldsoft.notes.utils.EditorState
@@ -24,8 +25,16 @@ class DrawCanvas(
     val page: PageView
 ) : SurfaceView(context) {
 
+    private val canvasRenderer = CanvasRenderer(this, page)
     private val drawingManager = DrawingManager(page)
-    private val touchEventHandler = TouchEventHandler(context, this, coroutineScope, state, drawingManager)
+    private val touchEventHandler = TouchEventHandler(
+        context,
+        this,
+        coroutineScope,
+        state,
+        drawingManager,
+        canvasRenderer
+    )
 
     fun init() {
         println("Initializing Canvas")
@@ -203,18 +212,7 @@ class DrawCanvas(
     }
 
     fun drawCanvasToView() {
-        val canvas = this.holder.lockCanvas() ?: return
-
-        // Clear the canvas
-        canvas.drawColor(android.graphics.Color.WHITE)
-
-        // Draw strokes
-        for (stroke in page.strokes) {
-            page.drawStroke(canvas, stroke, androidx.compose.ui.unit.IntOffset(0, 0))
-        }
-
-        // Finish rendering
-        this.holder.unlockCanvasAndPost(canvas)
+        canvasRenderer.drawCanvasToView()
     }
 
     private suspend fun updateIsDrawing() {
