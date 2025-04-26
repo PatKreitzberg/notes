@@ -10,6 +10,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.Eraser
 import com.wyldsoft.notes.utils.Mode
 import com.wyldsoft.notes.utils.Pen
@@ -21,6 +22,7 @@ import com.onyx.android.sdk.api.device.epd.EpdController
 import com.onyx.android.sdk.pen.RawInputCallback
 import com.onyx.android.sdk.pen.TouchHelper
 import com.onyx.android.sdk.pen.data.TouchPointList
+import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +51,6 @@ class DrawCanvas(
     val page: PageView
 ) : SurfaceView(context) {
     private val strokeHistoryBatch = mutableListOf<String>()
-
-    // List of drawable areas
-    private var drawableRects = mutableListOf<Rect>()
 
     companion object {
         var forceUpdate = MutableSharedFlow<Rect?>()
@@ -82,37 +81,7 @@ class DrawCanvas(
             println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
             val startTime = System.currentTimeMillis()
 
-            // When zoomed, we need to transform the touch points
-            val adjustedPoints = if (state.zoomScale != 1.0f) {
-                // Create a new touch point list with transformed coordinates
-                TouchPointList().apply {
-                    val centerX = this@DrawCanvas.width / 2f
-                    val centerY = this@DrawCanvas.height / 2f
-
-                    for (point in plist.points) {
-                        val relativeX = point.x - centerX
-                        val relativeY = point.y - centerY
-                        val scaledX = relativeX / state.zoomScale
-                        val scaledY = relativeY / state.zoomScale
-                        val adjustedX = scaledX + centerX
-                        val adjustedY = scaledY + centerY
-
-                        val adjustedPoint = com.onyx.android.sdk.data.note.TouchPoint(
-                            adjustedX,
-                            adjustedY,
-                            point.pressure,
-                            point.size,
-                            point.tiltX,
-                            point.tiltY,
-                            point.timestamp
-                        )
-                        this.add(adjustedPoint)
-                    }
-                }
-            } else {
-                // When not zoomed, use the original points
-                plist
-            }
+            val points = plist
 
             // Now use the adjusted touch points for drawing operations
             if (getActualState().mode == Mode.Draw) {
@@ -126,7 +95,7 @@ class DrawCanvas(
                                 getActualState().penSettings[getActualState().pen.penName]!!.strokeSize,
                                 getActualState().penSettings[getActualState().pen.penName]!!.color,
                                 getActualState().pen,
-                                adjustedPoints.points
+                                points.points
                             )
                             println("DEBUG: handleDraw completed")
                         } finally {
@@ -139,21 +108,11 @@ class DrawCanvas(
             } else thread {
                 if (getActualState().mode == Mode.Erase) {
                     println("DEBUG: Processing touch for ERASE mode")
-                    // For eraser, also adjust touch points for zoom
-                    val adjustedErasePoints = if (state.zoomScale != 1.0f) {
-                        val centerX = this@DrawCanvas.width / 2f
-                        val centerY = this@DrawCanvas.height / 2f
 
-                        adjustedPoints.points.map { point ->
-                            SimplePointF(point.x, point.y + page.scroll)
-                        }
-                    } else {
-                        plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
-                    }
-
+                    val erasePoints = plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
                     handleErase(
                         this@DrawCanvas.page,
-                        adjustedErasePoints,
+                        erasePoints,
                         eraser = getActualState().eraser
                     )
                     drawCanvasToView()
@@ -167,28 +126,10 @@ class DrawCanvas(
 
         override fun onRawErasingTouchPointListReceived(plist: TouchPointList?) {
             if (plist == null) return
-
-            // Apply the same coordinate transformation for eraser that we do for pen
-            val adjustedPoints = if (state.zoomScale != 1.0f) {
-                val centerX = page.viewWidth / 2f
-                val centerY = page.viewHeight / 2f
-
-                plist.points.map { point ->
-                    val relativeX = point.x - centerX
-                    val relativeY = point.y - centerY
-                    val scaledX = relativeX / state.zoomScale
-                    val scaledY = relativeY / state.zoomScale
-                    val adjustedX = scaledX + centerX
-                    val adjustedY = scaledY + centerY
-                    SimplePointF(adjustedX, adjustedY + page.scroll)
-                }
-            } else {
-                plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
-            }
-
+            val points = plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
             handleErase(
                 this@DrawCanvas.page,
-                adjustedPoints,
+                points,
                 eraser = getActualState().eraser
             )
             drawCanvasToView()
@@ -392,72 +333,9 @@ class DrawCanvas(
         // Clear the canvas
         canvas.drawColor(Color.WHITE)
 
-        // Calculate visible area based on zoom level
-        val visibleRect = if (state.zoomScale != 1.0f) {
-            val centerX = page.viewWidth / 2f
-            val centerY = page.viewHeight / 2f
-            val visibleWidth = page.viewWidth / state.zoomScale
-            val visibleHeight = page.viewHeight / state.zoomScale
-            val left = centerX - (visibleWidth / 2f)
-            val top = centerY - (visibleHeight / 2f) + page.scroll
-            RectF(left, top, left + visibleWidth, top + visibleHeight)
-        } else {
-            RectF(0f, page.scroll.toFloat(), page.viewWidth.toFloat(), (page.scroll + page.viewHeight).toFloat())
-        }
-
-        // Apply zoom transformation
-        if (state.zoomScale != 1.0f) {
-            canvas.save()
-            val centerX = page.viewWidth / 2f
-            val centerY = page.viewHeight / 2f
-            canvas.translate(centerX, centerY)
-            canvas.scale(state.zoomScale, state.zoomScale)
-            canvas.translate(-centerX, -centerY)
-        }
-
         // Draw strokes
         for (stroke in page.strokes) {
-            val strokeBounds = RectF(
-                stroke.left, stroke.top, stroke.right, stroke.bottom
-            )
-
-            // Check if stroke is in visible area before drawing
-            if (strokeBounds.intersect(visibleRect)) {
-                page.drawStroke(canvas, stroke, IntOffset(0, -page.scroll))
-            }
-        }
-
-        // Restore canvas state if zoom was applied
-        if (state.zoomScale != 1.0f) {
-            canvas.restore()
-
-            // Show zoom indicator in top-right corner
-            val zoomText = "${(state.zoomScale * 100).toInt()}%"
-            val textPaint = Paint().apply {
-                color = Color.BLACK
-                textSize = 28f
-                textAlign = Paint.Align.RIGHT
-            }
-
-            // Draw zoom indicator background
-            val textX = canvas.width - 20f
-            val textY = 40f
-            val textWidth = textPaint.measureText(zoomText)
-            val textBgPaint = Paint().apply {
-                color = Color.WHITE
-                style = Paint.Style.FILL
-            }
-
-            canvas.drawRect(
-                textX - textWidth - 10,
-                textY - 30,
-                textX + 10,
-                textY + 10,
-                textBgPaint
-            )
-
-            // Draw zoom text
-            canvas.drawText(zoomText, textX, textY, textPaint)
+            page.drawStroke(canvas, stroke, IntOffset(0, -page.scroll))
         }
 
         // Finish rendering
@@ -518,7 +396,7 @@ class DrawCanvas(
 
     fun updateActiveSurface() {
         println("Update editable surface")
-        val exclusionHeight = if (state.isToolbarOpen) 40 else 0
+        val exclusionHeight = if (state.isToolbarOpen) convertDpToPixel(40.dp, context).toInt() else 0
 
         touchHelper.setRawDrawingEnabled(false)
         touchHelper.closeRawDrawing()
