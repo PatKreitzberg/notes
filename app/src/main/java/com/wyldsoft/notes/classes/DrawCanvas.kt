@@ -109,7 +109,7 @@ class DrawCanvas(
                 if (getActualState().mode == Mode.Erase) {
                     println("DEBUG: Processing touch for ERASE mode")
 
-                    val erasePoints = plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
+                    val erasePoints = plist.points.map { SimplePointF(it.x, it.y) }
                     handleErase(
                         this@DrawCanvas.page,
                         erasePoints,
@@ -126,7 +126,7 @@ class DrawCanvas(
 
         override fun onRawErasingTouchPointListReceived(plist: TouchPointList?) {
             if (plist == null) return
-            val points = plist.points.map { SimplePointF(it.x, it.y + page.scroll) }
+            val points = plist.points.map { SimplePointF(it.x, it.y) }
             handleErase(
                 this@DrawCanvas.page,
                 points,
@@ -191,9 +191,9 @@ class DrawCanvas(
                 if (zoneAffected != null) page.drawArea(
                     area = Rect(
                         zoneAffected.left,
-                        zoneAffected.top - page.scroll,
+                        zoneAffected.top,
                         zoneAffected.right,
-                        zoneAffected.bottom - page.scroll
+                        zoneAffected.bottom
                     ),
                 )
                 refreshUiSuspend()
@@ -335,7 +335,7 @@ class DrawCanvas(
 
         // Draw strokes
         for (stroke in page.strokes) {
-            page.drawStroke(canvas, stroke, IntOffset(0, -page.scroll))
+            page.drawStroke(canvas, stroke, IntOffset(0, 0))
         }
 
         // Finish rendering
@@ -449,17 +449,17 @@ class DrawCanvas(
             val initialPoint = touchPoints[0]
             val boundingBox = RectF(
                 initialPoint.x,
-                initialPoint.y + page.scroll,
+                initialPoint.y,
                 initialPoint.x,
-                initialPoint.y + page.scroll
+                initialPoint.y
             )
 
             // Process all points at once
             val points = touchPoints.map {
-                boundingBox.union(it.x, it.y + page.scroll)
+                boundingBox.union(it.x, it.y)
                 StrokePoint(
                     x = it.x,
-                    y = it.y + page.scroll,
+                    y = it.y,
                     pressure = it.pressure,
                     size = it.size,
                     tiltX = it.tiltX,
@@ -489,9 +489,9 @@ class DrawCanvas(
             // Draw the stroke on the page all at once
             val rect = Rect(
                 boundingBox.left.toInt(),
-                boundingBox.top.toInt() - page.scroll,
+                boundingBox.top.toInt(),
                 boundingBox.right.toInt(),
-                boundingBox.bottom.toInt() - page.scroll
+                boundingBox.bottom.toInt()
             )
 
             page.drawArea(rect)
@@ -555,9 +555,9 @@ class DrawCanvas(
         page.drawArea(
             area = Rect(
                 getStrokeBounds(deletedStrokes).left.toInt(),
-                getStrokeBounds(deletedStrokes).top.toInt() - page.scroll,
+                getStrokeBounds(deletedStrokes).top.toInt(),
                 getStrokeBounds(deletedStrokes).right.toInt(),
-                getStrokeBounds(deletedStrokes).bottom.toInt() - page.scroll
+                getStrokeBounds(deletedStrokes).bottom.toInt()
             )
         )
     }

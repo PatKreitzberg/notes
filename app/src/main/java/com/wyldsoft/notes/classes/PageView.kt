@@ -32,7 +32,6 @@ class PageView(
     var windowedCanvas = Canvas(windowedBitmap)
     var strokes = listOf<Stroke>()
     private var strokesById: HashMap<String, Stroke> = hashMapOf()
-    var scroll by mutableIntStateOf(0)
     private val saveTopic = MutableSharedFlow<Unit>()
     var height by mutableIntStateOf(viewHeight)
 
@@ -118,9 +117,9 @@ class PageView(
         val activeCanvas = canvas ?: windowedCanvas
         val pageArea = Rect(
             area.left,
-            area.top + scroll,
+            area.top,
             area.right,
-            area.bottom + scroll
+            area.bottom
         )
 
         activeCanvas.save()
@@ -144,7 +143,7 @@ class PageView(
 
                 println("DEBUG: Drawing stroke with color=${stroke.color}, size=${stroke.size}")
                 drawStroke(
-                    activeCanvas, stroke, IntOffset(0, -scroll)
+                    activeCanvas, stroke, IntOffset(0, 0)
                 )
             }
         } catch (e: Exception) {
@@ -154,36 +153,6 @@ class PageView(
 
         activeCanvas.restore()
         println("DEBUG: drawArea completed")
-    }
-
-    fun updateScroll(_delta: Int) {
-        var delta = _delta
-
-        if (scroll + delta < 0) {
-            delta = -scroll
-        }
-
-        scroll += delta
-
-        // Scroll bitmap
-        val config = windowedBitmap.config ?: Bitmap.Config.ARGB_8888
-        val tmp = windowedBitmap.copy(config, false)
-        windowedCanvas.drawColor(Color.WHITE)
-        windowedCanvas.drawBitmap(tmp, 0f, -delta.toFloat(), Paint())
-        tmp.recycle()
-
-        // Draw the new area
-        val canvasOffset = if (delta > 0) windowedCanvas.height - delta else 0
-        drawArea(
-            area = Rect(
-                0,
-                canvasOffset,
-                windowedCanvas.width,
-                canvasOffset + kotlin.math.abs(delta)
-            ),
-        )
-
-        persistBitmapDebounced()
     }
 
     fun updateDimensions(newWidth: Int, newHeight: Int) {
