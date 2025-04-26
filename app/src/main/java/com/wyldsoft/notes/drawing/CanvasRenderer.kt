@@ -1,5 +1,6 @@
 package com.wyldsoft.notes.classes.drawing
 
+import android.graphics.RectF
 import android.view.SurfaceView
 import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.classes.PageView
@@ -21,8 +22,23 @@ class CanvasRenderer(
         // Clear the canvas
         canvas.drawColor(android.graphics.Color.WHITE)
 
-        // Draw strokes
+        // Get the current viewport in page coordinates
+        val viewport = page.viewportTransformer.getCurrentViewportInPageCoordinates()
+
+        // Draw only visible strokes
         for (stroke in page.strokes) {
+            val strokeBounds = RectF(
+                stroke.left,
+                stroke.top,
+                stroke.right,
+                stroke.bottom
+            )
+
+            // Skip strokes that are not in the viewport
+            if (!page.viewportTransformer.isRectVisible(strokeBounds)) {
+                continue
+            }
+
             page.drawStroke(canvas, stroke, IntOffset(0, 0))
         }
 

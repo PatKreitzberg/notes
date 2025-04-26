@@ -14,8 +14,12 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import com.wyldsoft.notes.gesture.GestureDetector
+import com.wyldsoft.notes.gesture.GestureEvent
 import com.wyldsoft.notes.gesture.GestureNotifier
+import com.wyldsoft.notes.gesture.GestureType
 import kotlinx.coroutines.launch
+import com.wyldsoft.notes.transform.ViewportTransformer
+
 
 /**
  * The main canvas component that coordinates all drawing operations.
@@ -40,6 +44,9 @@ class DrawCanvas(
     )
 
     private var gestureNotifier = GestureNotifier()
+
+    private val viewportTransformer get() = page.viewportTransformer
+
 
     fun init() {
         println("Initializing Canvas")
@@ -78,10 +85,38 @@ class DrawCanvas(
             touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
                 println("Gesture detected: ${gestureEvent.type}")
                 gestureNotifier.notifyGesture(gestureEvent)
+
+                // Handle scrolling gestures
+                handleScrollGesture(gestureEvent)
             }
         }
 
         this.holder.addCallback(surfaceCallback)
+    }
+
+    private fun handleScrollGesture(event: GestureEvent) {
+        when (event.type) {
+            GestureType.SWIPE_UP_FAST, GestureType.SWIPE_UP_SLOW,
+            GestureType.SWIPE_DOWN_FAST, GestureType.SWIPE_DOWN_SLOW -> {
+                coroutineScope.launch {
+                    val scrollAmount = viewportTransformer.calculateScrollAmount(
+                        event.startPoint.y,
+                        event.endPoint.y,
+                        event.duration
+                    )
+                    val scrollPerformed = viewportTransformer.scroll(scrollAmount)
+
+                    if (scrollPerformed) {
+                        // Force redraw the canvas
+                        drawCanvasToView()
+
+                        // Force a screen refresh to update the e-ink display
+                        refreshUiSuspend()
+                    }
+                }
+            }
+            else -> {} // Ignore other gestures
+        }
     }
 
     fun registerObservers() {

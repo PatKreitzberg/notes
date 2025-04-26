@@ -1,6 +1,7 @@
 package com.wyldsoft.notes.views
 
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +18,8 @@ import com.wyldsoft.notes.components.Toolbar
 import com.wyldsoft.notes.ui.theme.NotesTheme
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.convertDpToPixel
+import com.wyldsoft.notes.components.ScrollIndicator
+import com.wyldsoft.notes.components.TopBoundaryIndicator
 import java.util.UUID
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -39,28 +42,44 @@ fun EditorView() {
                 width = width,
                 viewWidth = width,
                 viewHeight = height
-            )
+            ).apply {
+                initializeViewportTransformer(context, scope)
+            }
         }
 
         // Dynamically update the page width when the Box constraints change
         LaunchedEffect(width, height) {
             if (page.width != width || page.viewHeight != height) {
                 page.updateDimensions(width, height)
-                DrawingManager.refreshUi.emit(Unit)  // Updated to use DrawingManager
+                DrawingManager.refreshUi.emit(Unit)
             }
         }
 
         val editorState = remember { EditorState(pageId = pageId, pageView = page) }
 
         NotesTheme {
-            EditorSurface(
-                state = editorState,
-                page = page
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                EditorSurface(
+                    state = editorState,
+                    page = page
+                )
 
-            Toolbar(
-                state = editorState
-            )
+                // Add scroll indicator
+                ScrollIndicator(
+                    viewportTransformer = page.viewportTransformer,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Add top boundary indicator
+                TopBoundaryIndicator(
+                    viewportTransformer = page.viewportTransformer,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                Toolbar(
+                    state = editorState
+                )
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
+import com.wyldsoft.notes.transform.ViewportTransformer
 
 /**
  * Responsible for managing the page content and rendering.
@@ -37,6 +39,12 @@ class PageView(
     private val saveTopic = MutableSharedFlow<Unit>()
     var height by mutableIntStateOf(viewHeight)
 
+    // transformer for scrolling, zoom, etc
+    private var _viewportTransformer: ViewportTransformer? = null
+    val viewportTransformer: ViewportTransformer
+        get() = _viewportTransformer ?: throw IllegalStateException("ViewportTransformer not initialized")
+
+
     init {
         coroutineScope.launch {
             saveTopic.debounce(1000).collect {
@@ -46,6 +54,39 @@ class PageView(
 
         windowedCanvas.drawColor(Color.WHITE)
     }
+
+    fun initializeViewportTransformer(
+        context: Context,
+        coroutineScope: CoroutineScope
+    ) {
+        _viewportTransformer = ViewportTransformer(
+            context = context,
+            coroutineScope = coroutineScope,
+            viewWidth = viewWidth,
+            viewHeight = viewHeight
+        )
+
+        // Initialize with current height
+        _viewportTransformer?.updateDocumentHeight(height)
+
+        // Listen to viewport changes
+        coroutineScope.launch {
+            _viewportTransformer?.viewportChanged?.collect {
+                // Redraw the visible area
+                val viewport = _viewportTransformer?.getCurrentViewportInPageCoordinates() ?: return@collect
+                val rect = Rect(
+                    0,
+                    viewport.top.toInt(),
+                    viewport.right.toInt(),
+                    viewport.bottom.toInt()
+                )
+                drawArea(rect)
+                persistBitmapDebounced()
+            }
+        }
+    }
+
+
 
     private fun indexStrokes() {
         coroutineScope.launch {
@@ -74,11 +115,13 @@ class PageView(
     private fun computeHeight() {
         if (strokes.isEmpty()) {
             height = viewHeight
+            viewportTransformer.updateDocumentHeight(height)
             return
         }
 
         val maxStrokeBottom = strokes.maxOf { it.bottom } + 50
         height = maxStrokeBottom.toInt().coerceAtLeast(viewHeight)
+        viewportTransformer.updateDocumentHeight(height)
     }
 
     private fun persistBitmap() {
@@ -105,12 +148,20 @@ class PageView(
     ) {
         println("DEBUG: drawArea called with area=$area")
         val activeCanvas = canvas ?: windowedCanvas
-        val pageArea = Rect(
-            area.left,
-            area.top,
-            area.right,
-            area.bottom
-        )
+
+        // Transform the area to account for scrolling
+        val pageArea = if (_viewportTransformer != null) {
+            // This is the area in page coordinates
+            Rect(
+                area.left,
+                area.top,
+                area.right,
+                area.bottom
+            )
+        } else {
+            // If viewportTransformer not initialized, use the area as is
+            area
+        }
 
         activeCanvas.save()
         activeCanvas.clipRect(area)
@@ -124,11 +175,22 @@ class PageView(
                     return@forEach
                 }
 
+                // Get the stroke bounds
                 val bounds = strokeBounds(stroke)
-                println("DEBUG: Checking stroke with bounds=$bounds against pageArea=$pageArea")
-                if (!bounds.intersect(pageArea)) {
-                    println("DEBUG: Stroke out of drawing area, skipping")
-                    return@forEach
+
+                // If viewport transformer is initialized, check if stroke is visible
+                if (_viewportTransformer != null) {
+                    val strokeRectF = RectF(
+                        bounds.left.toFloat(),
+                        bounds.top.toFloat(),
+                        bounds.right.toFloat(),
+                        bounds.bottom.toFloat()
+                    )
+
+                    if (!_viewportTransformer!!.isRectVisible(strokeRectF)) {
+                        // Skip stroke if it's not visible in current viewport
+                        return@forEach
+                    }
                 }
 
                 println("DEBUG: Drawing stroke with color=${stroke.color}, size=${stroke.size}")
@@ -150,6 +212,12 @@ class PageView(
             viewWidth = newWidth
             viewHeight = newHeight
 
+            // Update viewport transformer
+            if (_viewportTransformer != null) {
+                // Re-initialize with new dimensions
+                initializeViewportTransformer(context, coroutineScope)
+            }
+
             // Recreate bitmap and canvas with new dimensions
             windowedBitmap = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
             windowedCanvas = Canvas(windowedBitmap)
@@ -168,6 +236,18 @@ class PageView(
     }
 
     fun drawStroke(canvas: Canvas, stroke: Stroke, offset: IntOffset) {
+        // Check if stroke is visible first
+        val strokeBounds = RectF(
+            stroke.left,
+            stroke.top,
+            stroke.right,
+            stroke.bottom
+        )
+
+        if (!viewportTransformer.isRectVisible(strokeBounds)) {
+            return // Skip drawing if stroke is not visible
+        }
+
         val paint = Paint().apply {
             color = stroke.color
             strokeWidth = stroke.size
@@ -178,40 +258,21 @@ class PageView(
         }
 
         try {
-            // Use the pen name string to determine the drawing method
+            // Transform the points to view coordinates
+            val transformedPoints = stroke.points.map { point ->
+                val (viewX, viewY) = viewportTransformer.pageToViewCoordinates(
+                    point.x + offset.x,
+                    point.y + offset.y
+                )
+                androidx.compose.ui.geometry.Offset(viewX, viewY)
+            }
+
+            // Use the pen name to determine drawing method
             when (stroke.pen.penName) {
-                "BALLPEN" -> drawBallPenStroke(canvas, paint, stroke.size,
-                    stroke.points.map { point ->
-                        androidx.compose.ui.geometry.Offset(
-                            x = point.x + offset.x,
-                            y = point.y + offset.y
-                        )
-                    }
-                )
-                "MARKER" -> drawMarkerStroke(canvas, paint, stroke.size,
-                    stroke.points.map { point ->
-                        androidx.compose.ui.geometry.Offset(
-                            x = point.x + offset.x,
-                            y = point.y + offset.y
-                        )
-                    }
-                )
-                "FOUNTAIN" -> drawFountainPenStroke(canvas, paint, stroke.size,
-                    stroke.points.map { point ->
-                        androidx.compose.ui.geometry.Offset(
-                            x = point.x + offset.x,
-                            y = point.y + offset.y
-                        )
-                    }
-                )
-                else -> drawBallPenStroke(canvas, paint, stroke.size,
-                    stroke.points.map { point ->
-                        androidx.compose.ui.geometry.Offset(
-                            x = point.x + offset.x,
-                            y = point.y + offset.y
-                        )
-                    }
-                )
+                "BALLPEN" -> drawBallPenStroke(canvas, paint, stroke.size, transformedPoints)
+                "MARKER" -> drawMarkerStroke(canvas, paint, stroke.size, transformedPoints)
+                "FOUNTAIN" -> drawFountainPenStroke(canvas, paint, stroke.size, transformedPoints)
+                else -> drawBallPenStroke(canvas, paint, stroke.size, transformedPoints)
             }
         } catch (e: Exception) {
             println("Error drawing stroke: ${e.message}")
