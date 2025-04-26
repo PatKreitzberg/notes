@@ -143,18 +143,6 @@ fun Toolbar(
 
                 Spacer(Modifier.weight(1f))
 
-                // Reset zoom button
-                ToolbarButton(
-                    onSelect = {
-                        state.resetZoom()
-                        scope.launch {
-                            DrawCanvas.refreshUi.emit(Unit)
-                        }
-                    },
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Reset zoom"
-                )
-
                 Box(
                     Modifier
                         .fillMaxHeight()

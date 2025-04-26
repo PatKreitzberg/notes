@@ -55,26 +55,5 @@ class EditorState(val pageId: String, val pageView: PageView) {
         )
     )
 
-    // Zoom properties
-    var zoomScale by mutableStateOf(1.0f)
-    var zoomOffsetX by mutableStateOf(0f)
-    var zoomOffsetY by mutableStateOf(0f)
-    val minZoom = 0.5f
-    val maxZoom = 2.0f
-
-    fun resetZoom() {
-        zoomScale = 1.0f
-        zoomOffsetX = 0f
-        zoomOffsetY = 0f
-    }
-
-    fun normalizeZoom() {
-        zoomScale = zoomScale.coerceIn(minZoom, maxZoom)
-        if (zoomScale == 1.0f) {
-            zoomOffsetX = 0f
-            zoomOffsetY = 0f
-        }
-    }
-
     val selectionState = SelectionState()
 }

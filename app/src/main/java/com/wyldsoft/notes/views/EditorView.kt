@@ -51,14 +51,6 @@ fun EditorView() {
 
         val editorState = remember { EditorState(pageId = pageId, pageView = page) }
 
-        // Reset zoom when changing drawing mode for better user experience
-        LaunchedEffect(editorState.mode) {
-            if (editorState.zoomScale != 1.0f) {
-                editorState.resetZoom()
-                DrawCanvas.refreshUi.emit(Unit)
-            }
-        }
-
         NotesTheme {
             EditorSurface(
                 state = editorState,
