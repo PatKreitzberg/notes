@@ -70,32 +70,24 @@ class PageView(
         // Initialize with current height
         _viewportTransformer?.updateDocumentHeight(height)
 
-        // Listen to viewport changes and throttle updates to avoid overwhelming the e-ink display
-        var lastUpdateTime = 0L
-        val minUpdateInterval = 100L // 100ms minimum between updates
-
+        // Listen to viewport changes
         coroutineScope.launch {
             _viewportTransformer?.viewportChanged?.collect {
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastUpdateTime >= minUpdateInterval) {
-                    lastUpdateTime = currentTime
+                // Redraw the visible area
+                val viewport = _viewportTransformer?.getCurrentViewportInPageCoordinates() ?: return@collect
+                val rect = Rect(
+                    0,
+                    viewport.top.toInt(),
+                    viewport.right.toInt(),
+                    viewport.bottom.toInt()
+                )
 
-                    // Redraw the visible area
-                    val viewport = _viewportTransformer?.getCurrentViewportInPageCoordinates() ?: return@collect
-                    val rect = Rect(
-                        0,
-                        viewport.top.toInt(),
-                        viewport.right.toInt(),
-                        viewport.bottom.toInt()
-                    )
+                // Redraw the area
+                drawArea(rect)
 
-                    // Redraw the area
-                    drawArea(rect)
-
-                    // Update the e-ink display
-                    coroutineScope.launch {
-                        DrawingManager.forceUpdate.emit(rect)
-                    }
+                // Make sure to refresh the display
+                coroutineScope.launch {
+                    com.wyldsoft.notes.classes.drawing.DrawingManager.forceUpdate.emit(rect)
                 }
             }
         }

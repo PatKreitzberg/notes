@@ -56,17 +56,14 @@ class TouchEventHandler(
     private val pressure = EpdController.getMaxTouchPressure()
     private var referencedSurfaceView: String = ""
 
-    private lateinit var scrollTracker: DirectScrollTracker
-
     /*
       start gesture detection
     */
-
-
     val gestureDetector = GestureDetector(context)
 
+    private lateinit var scrollTracker: DirectScrollTracker
     init {
-        scrollTracker = DirectScrollTracker(coroutineScope, viewportTransformer)
+        scrollTracker = DirectScrollTracker(viewportTransformer)
     }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {
@@ -86,26 +83,22 @@ class TouchEventHandler(
     fun setupTouchInterception() {
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
-            println("DEBUG: Touch event received: ${event.action}")
-
             // If we're currently drawing with the stylus, don't process finger gestures
             if (DrawingManager.drawingInProgress.isLocked) {
-                println("DEBUG: Drawing in progress, ignoring touch event")
                 return@setOnTouchListener false
             }
 
             // If it's a stylus event, let Onyx SDK handle it
             if (isStylusEvent(event)) {
-                println("DEBUG: Stylus event, letting Onyx SDK handle it")
                 return@setOnTouchListener false
             }
 
-            // Process with scroll tracker for direct finger scrolling
+            // Process with scroll tracker for direct scrolling
             val consumed = scrollTracker.processTouchEvent(event)
 
-            // Only if not consumed by scroll tracker, use gesture detector
+            // Only pass to gesture detector if not consumed by scroll tracker
             if (!consumed) {
-                gestureDetector.processTouchEvent(event)
+                return@setOnTouchListener gestureDetector.processTouchEvent(event)
             }
 
             return@setOnTouchListener consumed

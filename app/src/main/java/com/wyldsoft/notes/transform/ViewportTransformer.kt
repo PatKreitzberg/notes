@@ -8,22 +8,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import org.apache.commons.lang3.math.NumberUtils.toDouble
-import java.lang.Math.pow
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.pow
 
 /**
- * Handles viewport transformations including scrolling and coordinates translation
- * between page space and view space.
+ * Handles viewport transformations including scrolling and coordinates translation.
  */
 class ViewportTransformer(
     private val context: Context,
@@ -31,10 +26,10 @@ class ViewportTransformer(
     private val viewWidth: Int,
     private val viewHeight: Int
 ) {
-    // Viewport position relative to the page (top-left corner)
+    // Viewport position
     var scrollY by mutableStateOf(0f)
 
-    // Current document height
+    // Document dimensions
     var documentHeight by mutableStateOf(viewHeight)
 
     // Minimum distance from bottom before auto-extending page
@@ -43,31 +38,18 @@ class ViewportTransformer(
     // Signals when viewport changes
     val viewportChanged = MutableSharedFlow<Unit>()
 
-    // The minimum scroll value is always 0 (can't scroll above the top)
+    // The minimum scroll value
     private val minScrollY = 0f
 
-    private var lastRealTimeUpdateTime = 0L
-    private val minUpdateInterval = 100L // Minimum time between updates for e-ink display
-    private var lastDirectScrollUpdate = 0L
-    private val directScrollUpdateInterval = 100L // Update every 100ms during direct scrolling
-
-
-
-    // Scroll indicator visibility timeout
-    private val scrollIndicatorTimeout = 1500L // 1.5 seconds
+    // UI indicators
     var isScrollIndicatorVisible by mutableStateOf(false)
     private var scrollIndicatorJob: Job? = null
-
-    // For scroll update intervals
-    private var scrollUpdateJob: Job? = null
-    private val scrollUpdateInterval = 50L // As specified, 250ms
-    private var scrollAnimationJob: Job? = null
-    private var targetScrollY = 0f
-    private var scrollAnimationInProgress = false
-
-    // For top boundary indicator
     var isAtTopBoundary by mutableStateOf(false)
     private var topBoundaryJob: Job? = null
+
+    // For throttling updates
+    private var lastUpdateTime = 0L
+    private val updateInterval = 100L // 100ms
 
     /**
      * Transforms a point from page coordinates to view coordinates
@@ -89,156 +71,7 @@ class ViewportTransformer(
     fun isRectVisible(rect: RectF): Boolean {
         val transformedTop = rect.top - scrollY
         val transformedBottom = rect.bottom - scrollY
-
-        // Visible if any part of the rectangle intersects the viewport
         return !(transformedBottom < 0 || transformedTop > viewHeight)
-    }
-
-    /**
-     * Returns the visible portion of a rect in view coordinates
-     */
-    fun getVisibleRect(rect: RectF): RectF? {
-        if (!isRectVisible(rect)) return null
-
-        val visibleRect = RectF(
-            rect.left,
-            max(rect.top, scrollY),
-            rect.right,
-            min(rect.bottom, scrollY + viewHeight)
-        )
-
-        // Transform to view coordinates
-        visibleRect.offset(0f, -scrollY)
-        return visibleRect
-    }
-
-    /**
-     * Returns the current viewport rect in page coordinates
-     */
-    fun getCurrentViewportInPageCoordinates(): RectF {
-        return RectF(
-            0f,
-            scrollY,
-            viewWidth.toFloat(),
-            scrollY + viewHeight
-        )
-    }
-
-    /**
-     * Updates the document height and ensures it's at least as tall as the viewport
-     */
-    fun updateDocumentHeight(newHeight: Int) {
-        documentHeight = max(newHeight, viewHeight)
-    }
-
-    /**
-     * Scrolls the viewport by the specified delta
-     * @param deltaY Amount to scroll (positive = down, negative = up)
-     * @param shouldAnimate Whether to animate the scroll with periodic updates
-     * @return true if scroll was performed, false if at boundary and couldn't scroll
-     */
-    fun scroll(deltaY: Float, shouldAnimate: Boolean = false): Boolean {
-        // Calculate new scrollY position
-        val newScrollY = scrollY + deltaY
-
-        // Check top boundary
-        if (newScrollY < minScrollY) {
-            if (scrollY > minScrollY) {
-                // We can scroll to the top, but not beyond
-                scrollY = minScrollY
-                showTopBoundaryIndicator()
-                showScrollIndicator()
-                notifyViewportChanged(true) // Force update
-                return true
-            } else {
-                // Already at top, show indicator
-                showTopBoundaryIndicator()
-                return false
-            }
-        }
-
-        // Check if we need to extend the document
-        val viewportBottom = newScrollY + viewHeight
-        if (viewportBottom > documentHeight - bottomPadding) {
-            // Auto-extend the document
-            documentHeight = (viewportBottom + bottomPadding).toInt()
-        }
-
-        // Update scroll position
-        scrollY = newScrollY
-        showScrollIndicator()
-
-        // For direct scrolling, we throttle updates to avoid overwhelming the e-ink display
-        val currentTime = System.currentTimeMillis()
-        val shouldUpdate = currentTime - lastDirectScrollUpdate >= directScrollUpdateInterval
-
-        if (shouldUpdate) {
-            lastDirectScrollUpdate = currentTime
-            notifyViewportChanged(!shouldAnimate)
-        }
-
-        return true
-    }
-
-    /**
-     * Shows the scroll indicator and hides it after a delay
-     */
-    private fun showScrollIndicator() {
-        isScrollIndicatorVisible = true
-
-        // Cancel previous job if it exists
-        scrollIndicatorJob?.cancel()
-
-        // Schedule hiding the indicator
-        scrollIndicatorJob = coroutineScope.launch {
-            delay(scrollIndicatorTimeout)
-            isScrollIndicatorVisible = false
-        }
-    }
-
-    /**
-     * Shows the top boundary indicator and hides it after a delay
-     */
-    private fun showTopBoundaryIndicator() {
-        isAtTopBoundary = true
-
-        // Cancel previous job if it exists
-        topBoundaryJob?.cancel()
-
-        // Schedule hiding the indicator
-        topBoundaryJob = coroutineScope.launch {
-            delay(800) // Show for 800ms
-            isAtTopBoundary = false
-        }
-    }
-
-    /**
-     * Sends viewport change notification
-     */
-    private fun notifyViewportChanged(forceUpdate: Boolean = false) {
-        coroutineScope.launch {
-            viewportChanged.emit(Unit)
-
-            if (forceUpdate) {
-                // Force UI refresh for important updates
-                DrawingManager.refreshUi.emit(Unit)
-            }
-        }
-    }
-
-    /**
-     * Starts periodic viewport updates for animation
-     */
-    private fun startScrollUpdateAnimation() {
-        // Cancel previous job if it exists
-        scrollUpdateJob?.cancel()
-
-        // Start a new update job
-        scrollUpdateJob = coroutineScope.launch {
-            notifyViewportChanged() // Immediate first update
-            delay(scrollUpdateInterval)
-            notifyViewportChanged() // Second update after delay
-        }
     }
 
     /**
@@ -269,87 +102,124 @@ class ViewportTransformer(
     }
 
     /**
-     * Scrolls the viewport by the specified delta with smooth animation
-     * @param deltaY Amount to scroll (positive = down, negative = up)
+     * Returns the visible portion of a rect in view coordinates
      */
-    fun scrollSmooth(deltaY: Float): Boolean {
-        // Calculate target scrollY position
-        val newTargetScrollY = scrollY + deltaY
+    fun getVisibleRect(rect: RectF): RectF? {
+        if (!isRectVisible(rect)) return null
+
+        val visibleRect = RectF(
+            rect.left,
+            max(rect.top, scrollY),
+            rect.right,
+            min(rect.bottom, scrollY + viewHeight)
+        )
+
+        visibleRect.offset(0f, -scrollY)
+        return visibleRect
+    }
+
+    /**
+     * Returns the current viewport rect in page coordinates
+     */
+    fun getCurrentViewportInPageCoordinates(): RectF {
+        return RectF(
+            0f,
+            scrollY,
+            viewWidth.toFloat(),
+            scrollY + viewHeight
+        )
+    }
+
+    /**
+     * Updates the document height
+     */
+    fun updateDocumentHeight(newHeight: Int) {
+        documentHeight = max(newHeight, viewHeight)
+    }
+
+    /**
+     * Scrolls the viewport by the specified delta
+     */
+    fun scroll(deltaY: Float, shouldAnimate: Boolean = false): Boolean {
+        // Calculate new scrollY position
+        val newScrollY = scrollY + deltaY
 
         // Check top boundary
-        if (newTargetScrollY < minScrollY) {
+        if (newScrollY < minScrollY) {
             if (scrollY > minScrollY) {
-                // We can scroll to the top, but not beyond
-                targetScrollY = minScrollY
+                scrollY = minScrollY
+                showTopBoundaryIndicator()
+                showScrollIndicator()
+                notifyViewportChanged()
+                return true
             } else {
-                // Already at top, show indicator
                 showTopBoundaryIndicator()
                 return false
             }
-        } else {
-            targetScrollY = newTargetScrollY
         }
 
         // Check if we need to extend the document
-        val viewportBottom = targetScrollY + viewHeight
+        val viewportBottom = newScrollY + viewHeight
         if (viewportBottom > documentHeight - bottomPadding) {
-            // Auto-extend the document
             documentHeight = (viewportBottom + bottomPadding).toInt()
         }
 
-        // Show scroll indicator
+        // Update scroll position
+        scrollY = newScrollY
         showScrollIndicator()
 
-        // Cancel any existing animation
-        scrollAnimationJob?.cancel()
-
-        // Start smooth scrolling animation
-        scrollAnimationJob = coroutineScope.launch {
-            scrollAnimationInProgress = true
-
-            val startScrollY = scrollY
-            val distance = targetScrollY - startScrollY
-
-            // Calculate how many steps we need based on distance and update interval
-            // We want scrolling to take between 200-500ms depending on distance
-            val duration = (200 + Math.abs(distance) / 3).coerceIn(200.0f, 500.0f).toLong()
-            val steps = (duration / scrollUpdateInterval).coerceAtLeast(1)
-
-            for (step in 0 until steps) {
-                // Calculate progress (0.0 to 1.0)
-                val progress = (step + 1) / steps.toFloat()
-
-                // Apply easing function for more natural scrolling
-                val easedProgress = easeInOutCubic(progress)
-
-                // Update actual scroll position
-                scrollY = startScrollY + (distance * easedProgress)
-
-                // Notify about viewport change
-                notifyViewportChanged()
-
-                // Wait for next update
-                if (step < steps - 1) {
-                    delay(scrollUpdateInterval)
-                }
-            }
-
-            // Ensure we end exactly at target
-            scrollY = targetScrollY
+        // Throttle updates
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastUpdateTime >= updateInterval) {
+            lastUpdateTime = currentTime
             notifyViewportChanged()
-
-            scrollAnimationInProgress = false
         }
 
         return true
     }
 
-    private fun easeInOutCubic(x: Float): Float {
-        return if (x < 0.5f) {
-            4 * x * x * x
-        } else {
-            1 - ((-2 * x + 2).pow(3)) / 2
+    /**
+     * Shows the scroll indicator and hides it after a delay
+     */
+    private fun showScrollIndicator() {
+        isScrollIndicatorVisible = true
+
+        // Cancel previous job if it exists
+        scrollIndicatorJob?.cancel()
+
+        // Schedule hiding the indicator
+        scrollIndicatorJob = coroutineScope.launch {
+            delay(1500) // 1.5 second timeout
+            isScrollIndicatorVisible = false
         }
     }
 
+    /**
+     * Shows the top boundary indicator and hides it after a delay
+     */
+    private fun showTopBoundaryIndicator() {
+        isAtTopBoundary = true
+
+        // Cancel previous job if it exists
+        topBoundaryJob?.cancel()
+
+        // Schedule hiding the indicator
+        topBoundaryJob = coroutineScope.launch {
+            delay(800) // Show for 800ms
+            isAtTopBoundary = false
+        }
+    }
+
+    /**
+     * Sends viewport change notification
+     */
+    private fun notifyViewportChanged() {
+        coroutineScope.launch {
+            viewportChanged.emit(Unit)
+            // We still need to ensure the UI refreshes appropriately
+            com.wyldsoft.notes.classes.drawing.DrawingManager.refreshUi.emit(Unit)
+        }
+    }
 }
+
+
