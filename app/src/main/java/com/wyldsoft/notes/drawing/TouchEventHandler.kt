@@ -16,7 +16,6 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
 
@@ -51,7 +50,6 @@ class TouchEventHandler(
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) {
             println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
-            val startTime = System.currentTimeMillis()
 
             val points = plist
 
@@ -140,16 +138,6 @@ class TouchEventHandler(
         TouchHelper.create(surfaceView, inputCallback)
     }
 
-    private fun onDrawingCompleted() {
-        // Let the canvas know to refresh the view with immediate visual feedback
-        canvasRenderer.drawCanvasToView()
-
-        // Emit refresh signal
-        coroutineScope.launch {
-            DrawingManager.refreshUi.emit(Unit)
-        }
-    }
-
     suspend fun lockDrawingWithTimeout(): Boolean {
         return withTimeoutOrNull(500) {
             DrawingManager.drawingInProgress.tryLock(500)
@@ -163,10 +151,6 @@ class TouchEventHandler(
 
     fun closeRawDrawing() {
         touchHelper.closeRawDrawing()
-    }
-
-    fun openRawDrawing() {
-        touchHelper.openRawDrawing()
     }
 
     fun updateActiveSurface() {

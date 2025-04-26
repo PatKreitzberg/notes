@@ -42,10 +42,6 @@ class EditorState(val pageId: String, val pageView: PageView) {
     var eraser by mutableStateOf(Eraser.PEN)
     var isDrawing by mutableStateOf(true)
     var isToolbarOpen by mutableStateOf(false)
-    // handwriting recognition
-    var isRecognizing by mutableStateOf(false)
-    var recognizedText by mutableStateOf<String?>(null)
-    var selectedForRecognition by mutableStateOf<List<Stroke>>(emptyList())
 
     var penSettings by mutableStateOf(
         mapOf(

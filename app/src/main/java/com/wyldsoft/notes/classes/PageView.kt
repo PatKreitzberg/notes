@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.max
 
 /**
  * Responsible for managing the page content and rendering.
@@ -72,10 +71,6 @@ class PageView(
         persistBitmapDebounced()
     }
 
-    fun getStrokes(strokeIds: List<String>): List<Stroke?> {
-        return strokeIds.map { s -> strokesById[s] }
-    }
-
     private fun computeHeight() {
         if (strokes.isEmpty()) {
             height = viewHeight
@@ -84,14 +79,6 @@ class PageView(
 
         val maxStrokeBottom = strokes.maxOf { it.bottom } + 50
         height = maxStrokeBottom.toInt().coerceAtLeast(viewHeight)
-    }
-
-    fun computeWidth(): Int {
-        if (strokes.isEmpty()) {
-            return viewWidth
-        }
-        val maxStrokeRight = strokes.maxOf { it.right }.plus(50)
-        return max(maxStrokeRight.toInt(), viewWidth)
     }
 
     private fun persistBitmap() {
