@@ -15,6 +15,10 @@ class GestureNotifier {
     private val notificationDuration = 2000 // milliseconds
 
     suspend fun notifyGesture(event: GestureEvent) {
+//        if (event.type == GestureType.FINGER_MOVE) {
+//            return
+//        }
+
         val message = formatGestureMessage(event)
 
         // Use the global snack flow to display notifications
@@ -32,6 +36,7 @@ class GestureNotifier {
             GestureType.SWIPE_UP_SLOW -> "Slow Swipe Up"
             GestureType.SWIPE_DOWN_FAST -> "Fast Swipe Down"
             GestureType.SWIPE_DOWN_SLOW -> "Slow Swipe Down"
+            GestureType.FINGER_MOVE -> "Finger move"
         }
 
         return "$gestureType detected: " +

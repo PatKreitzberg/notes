@@ -40,7 +40,8 @@ class DrawCanvas(
         coroutineScope,
         state,
         drawingManager,
-        canvasRenderer
+        canvasRenderer,
+        page.viewportTransformer
     )
 
     private var gestureNotifier = GestureNotifier()
@@ -86,38 +87,54 @@ class DrawCanvas(
                 println("Gesture detected: ${gestureEvent.type}")
                 gestureNotifier.notifyGesture(gestureEvent)
 
-                // Handle scrolling gestures
+                // Handle final gesture (swipe complete)
                 handleScrollGesture(gestureEvent)
+            }
+        }
+
+        // Add a new collector for move events
+        coroutineScope.launch {
+            touchEventHandler.gestureDetector.gestureMoved.collect { moveEvent ->
+                // Handle continuous scrolling during finger movement
+                handleMoveScrolling(moveEvent)
             }
         }
 
         this.holder.addCallback(surfaceCallback)
     }
 
+    private fun handleMoveScrolling(event: GestureEvent) {
+        if (event.type == GestureType.FINGER_MOVE) {
+            // Calculate scroll delta based on finger movement
+            val deltaY = event.startPoint.y - event.endPoint.y
+
+            // Scale the movement for more natural scrolling
+            // The multiplier controls how "responsive" the scrolling feels
+            val scrollAmount = deltaY * 1.2f
+
+            // Use direct scrolling without animation since we're updating in real-time
+            viewportTransformer.scroll(scrollAmount, false)
+        }
+    }
+
+
     private fun handleScrollGesture(event: GestureEvent) {
         when (event.type) {
             GestureType.SWIPE_UP_FAST, GestureType.SWIPE_UP_SLOW,
             GestureType.SWIPE_DOWN_FAST, GestureType.SWIPE_DOWN_SLOW -> {
-                coroutineScope.launch {
-                    val scrollAmount = viewportTransformer.calculateScrollAmount(
-                        event.startPoint.y,
-                        event.endPoint.y,
-                        event.duration
-                    )
-                    val scrollPerformed = viewportTransformer.scroll(scrollAmount)
+                // Apply a final scroll with inertia for better UX
+                val scrollAmount = viewportTransformer.calculateScrollAmount(
+                    event.startPoint.y,
+                    event.endPoint.y,
+                    event.duration
+                )
 
-                    if (scrollPerformed) {
-                        // Force redraw the canvas
-                        drawCanvasToView()
-
-                        // Force a screen refresh to update the e-ink display
-                        refreshUiSuspend()
-                    }
-                }
+                viewportTransformer.scroll(scrollAmount, true)
             }
             else -> {} // Ignore other gestures
         }
     }
+
 
     fun registerObservers() {
         // observe forceUpdate

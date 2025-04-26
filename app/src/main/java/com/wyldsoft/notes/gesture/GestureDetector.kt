@@ -27,6 +27,12 @@ class GestureDetector(private val context: Context) {
     // Coroutine scope for emitting events
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
+    // scroll
+    val gestureMoved = MutableSharedFlow<GestureEvent>() // New event for moves
+    private var lastMoveY: Float = 0f
+    private var lastMoveTime: Long = 0
+
+
     // Track gesture state
     private var startX: Float = 0f
     private var startY: Float = 0f
@@ -35,14 +41,18 @@ class GestureDetector(private val context: Context) {
 
     // Process touch events
     fun processTouchEvent(event: MotionEvent): Boolean {
-        println("gesture processTouchEVent")
+        println("gesture processTouchEvent: ${event.action}")
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 startTracking(event)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                return false // We don't consume move events, just monitor them
+                if (isTracking) {
+                    trackMovement(event)
+                    return true // Now we consume move events for scrolling
+                }
+                return false
             }
             MotionEvent.ACTION_UP -> {
                 if (isTracking) {
@@ -58,12 +68,45 @@ class GestureDetector(private val context: Context) {
         return false
     }
 
+    private fun trackMovement(event: MotionEvent) {
+        println("scroll trackMovement")
+        val currentY = event.y
+        val currentTime = System.currentTimeMillis()
+
+        // Only process if we've moved a minimum distance or time has passed
+        val minMoveDistance = 5f // Minimum pixels to move before triggering
+        val minMoveTime = 16L // ~60fps timing
+
+        if (Math.abs(currentY - lastMoveY) > minMoveDistance ||
+            currentTime - lastMoveTime > minMoveTime) {
+            println("scroll trackMovement in if")
+            val moveEvent = GestureEvent(
+                type = GestureType.FINGER_MOVE,
+                startPoint = GesturePoint(startX, startY),
+                endPoint = GesturePoint(event.x, currentY),
+                duration = currentTime - startTime
+            )
+
+            // Emit via coroutines
+            coroutineScope.launch {
+                gestureMoved.emit(moveEvent)
+            }
+
+            // Update last position and time
+            lastMoveY = currentY
+            lastMoveTime = currentTime
+        }
+    }
+
     private fun startTracking(event: MotionEvent) {
         startX = event.x
         startY = event.y
+        lastMoveY = startY
         startTime = System.currentTimeMillis()
+        lastMoveTime = startTime
         isTracking = true
     }
+
 
     private fun stopTracking() {
         isTracking = false
@@ -129,6 +172,14 @@ class GestureDetector(private val context: Context) {
 // Data classes and enums for gesture events
 data class GesturePoint(val x: Float, val y: Float)
 
+enum class GestureType {
+    SWIPE_UP_FAST,
+    SWIPE_UP_SLOW,
+    SWIPE_DOWN_FAST,
+    SWIPE_DOWN_SLOW,
+    FINGER_MOVE,
+}
+
 data class GestureEvent(
     val type: GestureType,
     val startPoint: GesturePoint,
@@ -136,10 +187,3 @@ data class GestureEvent(
     val duration: Long
 )
 
-enum class GestureType {
-    SWIPE_UP_FAST,
-    SWIPE_UP_SLOW,
-    SWIPE_DOWN_FAST,
-    SWIPE_DOWN_SLOW,
-    // We can add more gesture types later
-}

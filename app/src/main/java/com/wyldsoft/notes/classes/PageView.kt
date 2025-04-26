@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
+import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -69,24 +70,36 @@ class PageView(
         // Initialize with current height
         _viewportTransformer?.updateDocumentHeight(height)
 
-        // Listen to viewport changes
+        // Listen to viewport changes and throttle updates to avoid overwhelming the e-ink display
+        var lastUpdateTime = 0L
+        val minUpdateInterval = 100L // 100ms minimum between updates
+
         coroutineScope.launch {
             _viewportTransformer?.viewportChanged?.collect {
-                // Redraw the visible area
-                val viewport = _viewportTransformer?.getCurrentViewportInPageCoordinates() ?: return@collect
-                val rect = Rect(
-                    0,
-                    viewport.top.toInt(),
-                    viewport.right.toInt(),
-                    viewport.bottom.toInt()
-                )
-                drawArea(rect)
-                persistBitmapDebounced()
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastUpdateTime >= minUpdateInterval) {
+                    lastUpdateTime = currentTime
+
+                    // Redraw the visible area
+                    val viewport = _viewportTransformer?.getCurrentViewportInPageCoordinates() ?: return@collect
+                    val rect = Rect(
+                        0,
+                        viewport.top.toInt(),
+                        viewport.right.toInt(),
+                        viewport.bottom.toInt()
+                    )
+
+                    // Redraw the area
+                    drawArea(rect)
+
+                    // Update the e-ink display
+                    coroutineScope.launch {
+                        DrawingManager.forceUpdate.emit(rect)
+                    }
+                }
             }
         }
     }
-
-
 
     private fun indexStrokes() {
         coroutineScope.launch {

@@ -15,8 +15,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import org.apache.commons.lang3.math.NumberUtils.toDouble
+import java.lang.Math.pow
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 /**
  * Handles viewport transformations including scrolling and coordinates translation
@@ -43,6 +46,13 @@ class ViewportTransformer(
     // The minimum scroll value is always 0 (can't scroll above the top)
     private val minScrollY = 0f
 
+    private var lastRealTimeUpdateTime = 0L
+    private val minUpdateInterval = 100L // Minimum time between updates for e-ink display
+    private var lastDirectScrollUpdate = 0L
+    private val directScrollUpdateInterval = 100L // Update every 100ms during direct scrolling
+
+
+
     // Scroll indicator visibility timeout
     private val scrollIndicatorTimeout = 1500L // 1.5 seconds
     var isScrollIndicatorVisible by mutableStateOf(false)
@@ -50,7 +60,10 @@ class ViewportTransformer(
 
     // For scroll update intervals
     private var scrollUpdateJob: Job? = null
-    private val scrollUpdateInterval = 250L // As specified, 250ms
+    private val scrollUpdateInterval = 50L // As specified, 250ms
+    private var scrollAnimationJob: Job? = null
+    private var targetScrollY = 0f
+    private var scrollAnimationInProgress = false
 
     // For top boundary indicator
     var isAtTopBoundary by mutableStateOf(false)
@@ -124,7 +137,7 @@ class ViewportTransformer(
      * @param shouldAnimate Whether to animate the scroll with periodic updates
      * @return true if scroll was performed, false if at boundary and couldn't scroll
      */
-    fun scroll(deltaY: Float, shouldAnimate: Boolean = true): Boolean {
+    fun scroll(deltaY: Float, shouldAnimate: Boolean = false): Boolean {
         // Calculate new scrollY position
         val newScrollY = scrollY + deltaY
 
@@ -135,7 +148,7 @@ class ViewportTransformer(
                 scrollY = minScrollY
                 showTopBoundaryIndicator()
                 showScrollIndicator()
-                notifyViewportChanged()
+                notifyViewportChanged(true) // Force update
                 return true
             } else {
                 // Already at top, show indicator
@@ -155,11 +168,13 @@ class ViewportTransformer(
         scrollY = newScrollY
         showScrollIndicator()
 
-        // Notify about viewport change with animation if requested
-        if (shouldAnimate) {
-            startScrollUpdateAnimation()
-        } else {
-            notifyViewportChanged()
+        // For direct scrolling, we throttle updates to avoid overwhelming the e-ink display
+        val currentTime = System.currentTimeMillis()
+        val shouldUpdate = currentTime - lastDirectScrollUpdate >= directScrollUpdateInterval
+
+        if (shouldUpdate) {
+            lastDirectScrollUpdate = currentTime
+            notifyViewportChanged(!shouldAnimate)
         }
 
         return true
@@ -200,11 +215,14 @@ class ViewportTransformer(
     /**
      * Sends viewport change notification
      */
-    private fun notifyViewportChanged() {
+    private fun notifyViewportChanged(forceUpdate: Boolean = false) {
         coroutineScope.launch {
             viewportChanged.emit(Unit)
-            // Also emit to DrawingManager.refreshUi to ensure screen refresh
-            DrawingManager.refreshUi.emit(Unit)
+
+            if (forceUpdate) {
+                // Force UI refresh for important updates
+                DrawingManager.refreshUi.emit(Unit)
+            }
         }
     }
 
@@ -249,4 +267,89 @@ class ViewportTransformer(
 
         return baseScrollAmount * speedFactor
     }
+
+    /**
+     * Scrolls the viewport by the specified delta with smooth animation
+     * @param deltaY Amount to scroll (positive = down, negative = up)
+     */
+    fun scrollSmooth(deltaY: Float): Boolean {
+        // Calculate target scrollY position
+        val newTargetScrollY = scrollY + deltaY
+
+        // Check top boundary
+        if (newTargetScrollY < minScrollY) {
+            if (scrollY > minScrollY) {
+                // We can scroll to the top, but not beyond
+                targetScrollY = minScrollY
+            } else {
+                // Already at top, show indicator
+                showTopBoundaryIndicator()
+                return false
+            }
+        } else {
+            targetScrollY = newTargetScrollY
+        }
+
+        // Check if we need to extend the document
+        val viewportBottom = targetScrollY + viewHeight
+        if (viewportBottom > documentHeight - bottomPadding) {
+            // Auto-extend the document
+            documentHeight = (viewportBottom + bottomPadding).toInt()
+        }
+
+        // Show scroll indicator
+        showScrollIndicator()
+
+        // Cancel any existing animation
+        scrollAnimationJob?.cancel()
+
+        // Start smooth scrolling animation
+        scrollAnimationJob = coroutineScope.launch {
+            scrollAnimationInProgress = true
+
+            val startScrollY = scrollY
+            val distance = targetScrollY - startScrollY
+
+            // Calculate how many steps we need based on distance and update interval
+            // We want scrolling to take between 200-500ms depending on distance
+            val duration = (200 + Math.abs(distance) / 3).coerceIn(200.0f, 500.0f).toLong()
+            val steps = (duration / scrollUpdateInterval).coerceAtLeast(1)
+
+            for (step in 0 until steps) {
+                // Calculate progress (0.0 to 1.0)
+                val progress = (step + 1) / steps.toFloat()
+
+                // Apply easing function for more natural scrolling
+                val easedProgress = easeInOutCubic(progress)
+
+                // Update actual scroll position
+                scrollY = startScrollY + (distance * easedProgress)
+
+                // Notify about viewport change
+                notifyViewportChanged()
+
+                // Wait for next update
+                if (step < steps - 1) {
+                    delay(scrollUpdateInterval)
+                }
+            }
+
+            // Ensure we end exactly at target
+            scrollY = targetScrollY
+            notifyViewportChanged()
+
+            scrollAnimationInProgress = false
+        }
+
+        return true
+    }
+
+    private fun easeInOutCubic(x: Float): Float {
+        return if (x < 0.5f) {
+            4 * x * x * x
+        } else {
+            1 - ((-2 * x + 2).pow(3)) / 2
+        }
+    }
+
 }

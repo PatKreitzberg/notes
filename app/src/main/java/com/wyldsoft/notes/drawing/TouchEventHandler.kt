@@ -20,7 +20,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
 import android.view.MotionEvent
+import com.wyldsoft.notes.gesture.DirectScrollTracker
 import com.wyldsoft.notes.gesture.GestureDetector
+import com.wyldsoft.notes.transform.ViewportTransformer
 
 class PenStyleConverter {
     companion object {
@@ -47,18 +49,25 @@ class TouchEventHandler(
     private val coroutineScope: CoroutineScope,
     private val state: EditorState,
     private val drawingManager: DrawingManager,
-    private val canvasRenderer: CanvasRenderer  // Added parameter
+    private val canvasRenderer: CanvasRenderer,
+    private val viewportTransformer: ViewportTransformer
 ) {
     // Get maximum pressure from the device
     private val pressure = EpdController.getMaxTouchPressure()
     private var referencedSurfaceView: String = ""
 
+    private lateinit var scrollTracker: DirectScrollTracker
+
     /*
       start gesture detection
     */
-    // gesture detection
+
 
     val gestureDetector = GestureDetector(context)
+
+    init {
+        scrollTracker = DirectScrollTracker(coroutineScope, viewportTransformer)
+    }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {
         // Skip if we're currently drawing with the stylus
@@ -74,7 +83,6 @@ class TouchEventHandler(
         return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
     }
 
-    // In TouchEventHandler.kt
     fun setupTouchInterception() {
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
@@ -92,9 +100,14 @@ class TouchEventHandler(
                 return@setOnTouchListener false
             }
 
-            // For finger touches, process with our gesture detector
-            val consumed = gestureDetector.processTouchEvent(event)
-            println("DEBUG: Finger touch event ${if (consumed) "consumed" else "not consumed"} by gesture detector")
+            // Process with scroll tracker for direct finger scrolling
+            val consumed = scrollTracker.processTouchEvent(event)
+
+            // Only if not consumed by scroll tracker, use gesture detector
+            if (!consumed) {
+                gestureDetector.processTouchEvent(event)
+            }
+
             return@setOnTouchListener consumed
         }
     }
