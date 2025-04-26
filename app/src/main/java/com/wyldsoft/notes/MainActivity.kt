@@ -24,7 +24,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.wyldsoft.notes.ui.theme.NotesTheme
-import com.wyldsoft.notes.classes.DrawCanvas
+import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.classes.LocalSnackContext
 import com.wyldsoft.notes.classes.SnackBar
 import com.wyldsoft.notes.classes.SnackState
@@ -73,14 +73,14 @@ class MainActivity : ComponentActivity() {
         super.onRestart()
         // Redraw after device sleep
         this.lifecycleScope.launch {
-            DrawCanvas.restartAfterConfChange.emit(Unit)
+            DrawingManager.restartAfterConfChange.emit(Unit)
         }
     }
 
     override fun onPause() {
         super.onPause()
         this.lifecycleScope.launch {
-            DrawCanvas.refreshUi.emit(Unit)
+            DrawingManager.refreshUi.emit(Unit)
         }
     }
 
@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
             enableFullScreen()
         }
         this.lifecycleScope.launch {
-            DrawCanvas.refreshUi.emit(Unit)
+            DrawingManager.refreshUi.emit(Unit)
         }
     }
 

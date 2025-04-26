@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.wyldsoft.notes.classes.DrawCanvas
 import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.components.EditorSurface
 import com.wyldsoft.notes.components.Toolbar
 import com.wyldsoft.notes.ui.theme.NotesTheme
@@ -45,7 +46,7 @@ fun EditorView() {
         LaunchedEffect(width, height) {
             if (page.width != width || page.viewHeight != height) {
                 page.updateDimensions(width, height)
-                DrawCanvas.refreshUi.emit(Unit)
+                DrawingManager.refreshUi.emit(Unit)  // Updated to use DrawingManager
             }
         }
 

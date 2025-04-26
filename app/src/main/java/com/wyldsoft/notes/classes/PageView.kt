@@ -10,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
-import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -20,6 +19,10 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.max
 
+/**
+ * Responsible for managing the page content and rendering.
+ * Handles stroke storage, bitmap rendering, and persistence.
+ */
 class PageView(
     val context: Context,
     val coroutineScope: CoroutineScope,
@@ -102,7 +105,7 @@ class PageView(
         os.close()
     }
 
-    private fun persistBitmapDebounced() {
+    fun persistBitmapDebounced() {
         coroutineScope.launch {
             saveTopic.emit(Unit)
         }
