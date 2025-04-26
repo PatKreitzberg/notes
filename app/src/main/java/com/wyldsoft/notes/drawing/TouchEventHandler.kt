@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
+import android.view.MotionEvent
+import com.wyldsoft.notes.gesture.GestureDetector
 
 class PenStyleConverter {
     companion object {
@@ -50,6 +52,56 @@ class TouchEventHandler(
     // Get maximum pressure from the device
     private val pressure = EpdController.getMaxTouchPressure()
     private var referencedSurfaceView: String = ""
+
+    /*
+      start gesture detection
+    */
+    // gesture detection
+
+    val gestureDetector = GestureDetector(context)
+
+    fun handleTouchEvent(event: MotionEvent): Boolean {
+        // Skip if we're currently drawing with the stylus
+        if (DrawingManager.drawingInProgress.isLocked) {
+            return false
+        }
+
+        // Process the touch event with our gesture detector
+        return gestureDetector.processTouchEvent(event)
+    }
+
+    private fun isStylusEvent(event: MotionEvent): Boolean {
+        return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+    }
+
+    // In TouchEventHandler.kt
+    fun setupTouchInterception() {
+        println("DEBUG: Setting up touch interception")
+        surfaceView.setOnTouchListener { _, event ->
+            println("DEBUG: Touch event received: ${event.action}")
+
+            // If we're currently drawing with the stylus, don't process finger gestures
+            if (DrawingManager.drawingInProgress.isLocked) {
+                println("DEBUG: Drawing in progress, ignoring touch event")
+                return@setOnTouchListener false
+            }
+
+            // If it's a stylus event, let Onyx SDK handle it
+            if (isStylusEvent(event)) {
+                println("DEBUG: Stylus event, letting Onyx SDK handle it")
+                return@setOnTouchListener false
+            }
+
+            // For finger touches, process with our gesture detector
+            val consumed = gestureDetector.processTouchEvent(event)
+            println("DEBUG: Finger touch event ${if (consumed) "consumed" else "not consumed"} by gesture detector")
+            return@setOnTouchListener consumed
+        }
+    }
+
+    /*
+      End of gesture detection
+    */
 
     private val inputCallback: RawInputCallback = object : RawInputCallback() {
         override fun onBeginRawDrawing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {

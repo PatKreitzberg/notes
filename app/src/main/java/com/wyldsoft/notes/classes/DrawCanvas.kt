@@ -13,6 +13,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.wyldsoft.notes.gesture.GestureDetector
+import com.wyldsoft.notes.gesture.GestureNotifier
+import kotlinx.coroutines.launch
 
 /**
  * The main canvas component that coordinates all drawing operations.
@@ -35,6 +38,8 @@ class DrawCanvas(
         drawingManager,
         canvasRenderer
     )
+
+    private var gestureNotifier = GestureNotifier()
 
     fun init() {
         println("Initializing Canvas")
@@ -63,6 +68,19 @@ class DrawCanvas(
                 touchEventHandler.closeRawDrawing()
             }
         }
+
+
+        // Setup touch event interception
+        touchEventHandler.setupTouchInterception()
+
+        // Register to receive gesture events
+        coroutineScope.launch {
+            touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
+                println("Gesture detected: ${gestureEvent.type}")
+                gestureNotifier.notifyGesture(gestureEvent)
+            }
+        }
+
         this.holder.addCallback(surfaceCallback)
     }
 
