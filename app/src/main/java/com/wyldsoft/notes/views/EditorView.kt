@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.components.EditorSurface
 import com.wyldsoft.notes.components.Toolbar
@@ -18,18 +19,20 @@ import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.components.ScrollIndicator
 import com.wyldsoft.notes.components.TopBoundaryIndicator
-import java.util.UUID
-import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
+import kotlinx.coroutines.launch
+import java.util.UUID
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun EditorView() {
+fun EditorView(noteId: String? = null) {
     val context = LocalContext.current
+    val app = NotesApp.getApp(context)
     val scope = rememberCoroutineScope()
 
-    // Initialize settings repository
-    val settingsRepository = remember { SettingsRepository(context) }
+    // Get repositories from app
+    val settingsRepository = app.settingsRepository
+    val noteRepository = app.noteRepository
 
     // Initialize template renderer
     val templateRenderer = remember { TemplateRenderer(context) }
@@ -38,7 +41,8 @@ fun EditorView() {
         val height = convertDpToPixel(this.maxHeight, context).toInt()
         val width = convertDpToPixel(this.maxWidth, context).toInt()
 
-        val pageId = remember { UUID.randomUUID().toString() }
+        // Use provided noteId or generate a new one
+        val pageId = remember { noteId ?: UUID.randomUUID().toString() }
 
         val page = remember {
             PageView(
@@ -53,6 +57,28 @@ fun EditorView() {
             }
         }
 
+        // Load strokes from database if this is an existing note
+        LaunchedEffect(pageId) {
+            if (noteId != null) {
+                try {
+                    val strokes = noteRepository.getStrokesForNote(noteId)
+                    if (strokes.isNotEmpty()) {
+                        page.addStrokes(strokes)
+                    }
+                } catch (e: Exception) {
+                    println("Error loading strokes: ${e.message}")
+                }
+            } else {
+                // Create a new note in the database
+                noteRepository.createNote(
+                    id = pageId,
+                    title = "Note ${System.currentTimeMillis()}",
+                    width = width,
+                    height = height
+                )
+            }
+        }
+
         // Dynamically update the page width when the Box constraints change
         LaunchedEffect(width, height) {
             if (page.width != width || page.viewHeight != height) {
@@ -62,6 +88,16 @@ fun EditorView() {
         }
 
         val editorState = remember { EditorState(pageId = pageId, pageView = page) }
+
+        // Set up save functionality for strokes
+        LaunchedEffect(Unit) {
+            scope.launch {
+                page.strokesChanged.collect { strokes ->
+                    // Save strokes to database
+                    noteRepository.saveStrokes(pageId, strokes)
+                }
+            }
+        }
 
         NotesTheme {
             Box(modifier = Modifier.fillMaxSize()) {

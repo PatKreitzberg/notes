@@ -21,7 +21,7 @@ import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
 
 
-/**
+/*
  * The main canvas component that coordinates all drawing operations.
  * Acts as a façade for the underlying drawing system components.
  */

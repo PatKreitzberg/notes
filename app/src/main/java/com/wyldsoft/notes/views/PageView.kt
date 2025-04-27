@@ -20,6 +20,8 @@ import java.io.FileOutputStream
 import com.wyldsoft.notes.transform.ViewportTransformer
 import androidx.core.graphics.createBitmap
 import com.wyldsoft.notes.settings.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 
 /**
@@ -40,6 +42,10 @@ class PageView(
     private var strokesById: HashMap<String, Stroke> = hashMapOf()
     private val saveTopic = MutableSharedFlow<Unit>()
     var height by mutableIntStateOf(viewHeight)
+
+    // New flow to notify when strokes change (for database saving)
+    private val _strokesChanged = MutableStateFlow<List<Stroke>>(emptyList())
+    val strokesChanged = _strokesChanged.asStateFlow()
 
     // transformer for scrolling, zoom, etc
     private var _viewportTransformer: ViewportTransformer? = null
@@ -116,13 +122,24 @@ class PageView(
 
         indexStrokes()
         persistBitmapDebounced()
+
+        // Notify that strokes have changed
+        coroutineScope.launch {
+            _strokesChanged.emit(strokesToAdd)
+        }
     }
 
     fun removeStrokes(strokeIds: List<String>) {
+        val removedStrokes = strokes.filter { s -> strokeIds.contains(s.id) }
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
         indexStrokes()
         computeHeight()
         persistBitmapDebounced()
+
+        // Notify that strokes have been removed
+        coroutineScope.launch {
+            _strokesChanged.emit(emptyList()) // Empty list signals deletion
+        }
     }
 
     private fun computeHeight() {
@@ -171,7 +188,7 @@ class PageView(
                 return@forEach
             }
 
-            if (isStrokeVisible(stroke)) {
+            if (!isStrokeVisible(stroke)) {
                 // Skip stroke if it's not visible in current viewport
                 println("scroll skip Stroke in drawArea")
                 return@forEach
