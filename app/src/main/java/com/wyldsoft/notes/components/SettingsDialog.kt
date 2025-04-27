@@ -1,4 +1,4 @@
-// app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
+// Modifications to app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
 package com.wyldsoft.notes.components
 
 import androidx.compose.foundation.background
@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -38,9 +39,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsDialog(
     settingsRepository: SettingsRepository,
+    currentNoteName: String,
     onUpdateViewportTransformer: (Boolean) -> Unit,
     onUpdatePageDimensions: (PaperSize) -> Unit,
     onUpdateTemplate: (TemplateType) -> Unit,
+    onUpdateNoteName: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -49,6 +52,7 @@ fun SettingsDialog(
     var isPaginationEnabled by remember { mutableStateOf(settings.isPaginationEnabled) }
     var paperSize by remember { mutableStateOf(settings.paperSize) }
     var template by remember { mutableStateOf(settings.template) }
+    var noteName by remember { mutableStateOf(currentNoteName) }
 
     var paperSizeExpanded by remember { mutableStateOf(false) }
     var templateExpanded by remember { mutableStateOf(false) }
@@ -65,6 +69,18 @@ fun SettingsDialog(
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+
+            // Note Name Field
+            Text(text = "Note Name")
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = noteName,
+                onValueChange = { noteName = it },
+                label = { Text("Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Pagination Toggle
             Row(
@@ -188,6 +204,34 @@ fun SettingsDialog(
                     }) {
                         Text("Ruled Lines")
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Button row at the bottom
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+            ) {
+                androidx.compose.material.TextButton(
+                    onClick = onDismiss
+                ) {
+                    Text("Cancel")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                androidx.compose.material.Button(
+                    onClick = {
+                        // Save note name if it has changed and is not empty
+                        if (noteName.isNotBlank() && noteName != currentNoteName) {
+                            onUpdateNoteName(noteName)
+                        }
+                        onDismiss()
+                    }
+                ) {
+                    Text("Save")
                 }
             }
         }

@@ -43,13 +43,14 @@ fun Toolbar(
     state: EditorState,
     settingsRepository: SettingsRepository,
     viewportTransformer: ViewportTransformer,
-    templateRenderer: TemplateRenderer
+    templateRenderer: TemplateRenderer,
+    noteTitle: String, // Add this parameter
+    onUpdateNoteName: (String) -> Unit // Add this parameter
 ) {
     val scope = rememberCoroutineScope()
     var isColorSelectionOpen by remember { mutableStateOf(false) }
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-
 
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
@@ -189,6 +190,7 @@ fun Toolbar(
                 if (showSettings) {
                     SettingsDialog(
                         settingsRepository = settingsRepository,
+                        currentNoteName = noteTitle, // Pass the current note title
                         onUpdateViewportTransformer = { isPaginationEnabled ->
                             viewportTransformer.updatePaginationState(isPaginationEnabled)
                         },
@@ -202,6 +204,7 @@ fun Toolbar(
                                 DrawingManager.refreshUi.emit(Unit)
                             }
                         },
+                        onUpdateNoteName = onUpdateNoteName, // Pass the update callback
                         onDismiss = { showSettings = false }
                     )
                 }

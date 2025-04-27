@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +37,7 @@ fun EditorView(noteId: String? = null) {
     // Get repositories from app
     val settingsRepository = app.settingsRepository
     val noteRepository = app.noteRepository
+    var noteTitle by remember { mutableStateOf("New Note") }
 
     // Initialize template renderer
     val templateRenderer = remember { TemplateRenderer(context) }
@@ -63,33 +67,41 @@ fun EditorView(noteId: String? = null) {
             if (noteId != null) {
                 try {
                     println("DEBUG: Loading strokes for note $noteId")
-                    val strokes = noteRepository.getStrokesForNote(noteId)
-                    if (strokes.isNotEmpty()) {
-                        println("DEBUG: Loaded ${strokes.size} strokes")
-                        page.addStrokes(strokes)
 
-                        // Force redraw of the entire viewport
-                        val viewport = page.viewportTransformer.getCurrentViewportInPageCoordinates()
-                        val rect = android.graphics.Rect(
-                            0,
-                            viewport.top.toInt(),
-                            viewport.right.toInt(),
-                            viewport.bottom.toInt()
-                        )
-                        page.drawArea(rect)
+                    val note = noteRepository.getNoteById(noteId)
+                    if (note != null) {
+                        noteTitle = note.title
+                        val strokes = noteRepository.getStrokesForNote(noteId)
+                        if (strokes.isNotEmpty()) {
+                            println("DEBUG: Loaded ${strokes.size} strokes")
+                            page.addStrokes(strokes)
 
-                        // Trigger UI update through DrawingManager
-                        DrawingManager.forceUpdate.emit(rect)
-                        DrawingManager.refreshUi.emit(Unit)
+                            // Force redraw of the entire viewport
+                            val viewport =
+                                page.viewportTransformer.getCurrentViewportInPageCoordinates()
+                            val rect = android.graphics.Rect(
+                                0,
+                                viewport.top.toInt(),
+                                viewport.right.toInt(),
+                                viewport.bottom.toInt()
+                            )
+                            page.drawArea(rect)
+
+                            // Trigger UI update through DrawingManager
+                            DrawingManager.forceUpdate.emit(rect)
+                            DrawingManager.refreshUi.emit(Unit)
+                        }
                     }
                 } catch (e: Exception) {
                     println("Error loading strokes: ${e.message}")
                 }
             } else {
                 // Create a new note in the database
+                val defaultTitle = "Note ${System.currentTimeMillis()}"
+                noteTitle = defaultTitle
                 noteRepository.createNote(
                     id = pageId,
-                    title = "Note ${System.currentTimeMillis()}",
+                    title = defaultTitle,
                     width = width,
                     height = height
                 )
@@ -165,7 +177,27 @@ fun EditorView(noteId: String? = null) {
                     state = editorState,
                     settingsRepository = settingsRepository,
                     viewportTransformer = page.viewportTransformer,
-                    templateRenderer = templateRenderer
+                    templateRenderer = templateRenderer,
+                    noteTitle = noteTitle,
+                    onUpdateNoteName = { newName ->
+                        // Handle the rename operation
+                        scope.launch {
+                            try {
+                                // Get current note
+                                val note = noteRepository.getNoteById(pageId)
+                                if (note != null) {
+                                    // Update the note with new title
+                                    val updatedNote = note.copy(title = newName, updatedAt = java.util.Date())
+                                    noteRepository.updateNote(updatedNote)
+                                    // Update local state
+                                    noteTitle = newName
+                                    println("DEBUG: Note renamed to $newName")
+                                }
+                            } catch (e: Exception) {
+                                println("Error renaming note: ${e.message}")
+                            }
+                        }
+                    }
                 )
             }
         }
