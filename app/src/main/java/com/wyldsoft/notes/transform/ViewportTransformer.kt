@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
+import com.wyldsoft.notes.pagination.PaginationManager
 import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -39,6 +40,7 @@ class ViewportTransformer(
     // The minimum scroll value
     private val minScrollY = 0f
 
+
     // UI indicators
     var isScrollIndicatorVisible by mutableStateOf(false)
     private var scrollIndicatorJob: Job? = null
@@ -48,6 +50,15 @@ class ViewportTransformer(
     // For throttling updates
     private var lastUpdateTime = 0L
     private val updateInterval = 100L // 100ms
+
+    private lateinit var paginationManager: PaginationManager
+    init {
+        paginationManager = PaginationManager(context)
+    }
+
+    fun getPaginationManager(): PaginationManager {
+        return paginationManager
+    }
 
     /**
      * Transforms a point from page coordinates to view coordinates
@@ -162,7 +173,18 @@ class ViewportTransformer(
 
         // Check if we need to extend the document
         val viewportBottom = newScrollY + viewHeight
-        if (viewportBottom > documentHeight - bottomPadding) {
+
+        // When pagination is enabled, we might need to extend beyond current pages
+        if (paginationManager.isPaginationEnabled) {
+            val currentPageIndex = paginationManager.getPageIndexForY(viewportBottom)
+            val bottomMostPageY = paginationManager.getExclusionZoneBottomY(currentPageIndex)
+
+            if (viewportBottom > bottomMostPageY && bottomMostPageY > documentHeight - bottomPadding) {
+                // Extend to include the next page
+                documentHeight = (bottomMostPageY + paginationManager.pageHeightPx).toInt()
+            }
+        } else if (viewportBottom > documentHeight - bottomPadding) {
+            // Original behavior when pagination is disabled
             documentHeight = (viewportBottom + bottomPadding).toInt()
         }
 
@@ -178,6 +200,29 @@ class ViewportTransformer(
         }
 
         return true
+    }
+
+    /**
+     * Updates the pagination manager's state
+     */
+    fun updatePaginationState(enabled: Boolean) {
+        paginationManager.isPaginationEnabled = enabled
+
+        // Recalculate document height based on pagination
+        if (enabled) {
+            // If pagination is enabled, extend document to include at least one full page
+            documentHeight = paginationManager.getExclusionZoneBottomY(0).toInt()
+        }
+
+        // Notify that viewport has changed
+        notifyViewportChanged()
+    }
+
+    /**
+     * Returns the context used to create this transformer
+     */
+    fun getContext(): Context {
+        return context
     }
 
     /**

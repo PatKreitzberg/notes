@@ -31,7 +31,6 @@ class DrawCanvas(
     val state: EditorState,
     val page: PageView
 ) : SurfaceView(context) {
-
     private val canvasRenderer = CanvasRenderer(this, page)
     private val drawingManager = DrawingManager(page)
     private val touchEventHandler = TouchEventHandler(

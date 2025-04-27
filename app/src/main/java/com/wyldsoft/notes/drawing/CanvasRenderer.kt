@@ -4,6 +4,7 @@ import android.graphics.RectF
 import android.view.SurfaceView
 import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.pagination.PageRenderer
 
 /**
  * Handles rendering the canvas content to the screen.
@@ -13,6 +14,8 @@ class CanvasRenderer(
     private val surfaceView: SurfaceView,
     private val page: PageView
 ) {
+    private val pageRenderer: PageRenderer = PageRenderer(page.viewportTransformer)
+
     /**
      * Renders the current page state to the surface view
      */
@@ -38,6 +41,9 @@ class CanvasRenderer(
             println("scroll drawCanvasToView drawStroke")
             page.drawStroke(canvas, stroke)
         }
+
+        // Render pagination elements (page numbers and exclusion zones)
+        pageRenderer.renderPaginationElements(canvas)
 
         // Finish rendering
         surfaceView.holder.unlockCanvasAndPost(canvas)

@@ -20,8 +20,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
 import android.view.MotionEvent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import com.wyldsoft.notes.gesture.DirectScrollTracker
 import com.wyldsoft.notes.gesture.GestureDetector
+import com.wyldsoft.notes.pagination.PaginationManager
 import com.wyldsoft.notes.transform.ViewportTransformer
 
 class PenStyleConverter {
@@ -55,6 +59,9 @@ class TouchEventHandler(
     // Get maximum pressure from the device
     private val pressure = EpdController.getMaxTouchPressure()
     private var referencedSurfaceView: String = ""
+    var currentlyErasing by mutableStateOf(false)
+    private val paginationManager: PaginationManager
+        get() = viewportTransformer.getPaginationManager()
 
     /*
       start gesture detection
@@ -66,16 +73,6 @@ class TouchEventHandler(
         scrollTracker = DirectScrollTracker(viewportTransformer)
     }
 
-    fun handleTouchEvent(event: MotionEvent): Boolean {
-        // Skip if we're currently drawing with the stylus
-        if (DrawingManager.drawingInProgress.isLocked) {
-            return false
-        }
-
-        // Process the touch event with our gesture detector
-        return gestureDetector.processTouchEvent(event)
-    }
-
     private fun isStylusEvent(event: MotionEvent): Boolean {
         return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
     }
@@ -84,7 +81,7 @@ class TouchEventHandler(
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
             // If we're currently drawing with the stylus, don't process finger gestures
-            if (DrawingManager.drawingInProgress.isLocked) {
+            if (DrawingManager.drawingInProgress.isLocked || currentlyErasing) {
                 return@setOnTouchListener false
             }
 
@@ -171,12 +168,17 @@ class TouchEventHandler(
             }
         }
 
-        override fun onBeginRawErasing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {}
-        override fun onEndRawErasing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {}
+        override fun onBeginRawErasing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {
+            currentlyErasing = true
+        }
+        override fun onEndRawErasing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {
+            currentlyErasing = false
+        }
 
         override fun onRawErasingTouchPointListReceived(plist: TouchPointList?) {
             if (plist == null) return
             val points = plist.points.map { SimplePointF(it.x, it.y) }
+
             drawingManager.handleErase(
                 points,
                 eraser = state.eraser
@@ -192,6 +194,7 @@ class TouchEventHandler(
         }
 
         override fun onRawErasingTouchPointMoveReceived(p0: com.onyx.android.sdk.data.note.TouchPoint?) {}
+
         override fun onPenUpRefresh(refreshRect: RectF?) {
             super.onPenUpRefresh(refreshRect)
 
@@ -237,13 +240,43 @@ class TouchEventHandler(
         // Set exclude rect for toolbar
         val toolbarExcludeRect = Rect(0, 0, surfaceView.width, exclusionHeight)
 
+        // Create a list of exclusion zones if pagination is enabled
+        val excludeRects = mutableListOf(toolbarExcludeRect)
+
+        // Add pagination exclusion zones if enabled
+        if (paginationManager.isPaginationEnabled) {
+            val viewportTop = viewportTransformer.scrollY
+            val viewportHeight = surfaceView.height.toFloat()
+
+            // Get all exclusion zones visible in the current viewport
+            val exclusionZones = paginationManager.getExclusionZonesInViewport(viewportTop, viewportHeight)
+
+            // Transform to view coordinates and add to exclude rects
+            exclusionZones.forEach { rect ->
+                val top = rect.top - viewportTop.toInt()
+                val bottom = rect.bottom - viewportTop.toInt()
+
+                // Only add if visible in the viewport
+                if (bottom >= 0 && top <= viewportHeight) {
+                    excludeRects.add(
+                        Rect(
+                            0,
+                            top.coerceAtLeast(0),
+                            surfaceView.width,
+                            bottom.coerceAtMost(surfaceView.height)
+                        )
+                    )
+                }
+            }
+        }
+
         touchHelper.setLimitRect(
             mutableListOf(
                 Rect(
                     0, 0, surfaceView.width, surfaceView.height
                 )
             )
-        ).setExcludeRect(listOf(toolbarExcludeRect))
+        ).setExcludeRect(excludeRects)
             .openRawDrawing()
 
         setRawDrawingEnabled(true)

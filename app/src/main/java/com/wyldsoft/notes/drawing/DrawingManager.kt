@@ -127,10 +127,14 @@ class DrawingManager(private val page: PageView) {
         val path = android.graphics.Path()
         if (points.isEmpty()) return
 
-        path.moveTo(points[0].x, points[0].y)
+        // Transform the first point from view to page coordinates
+        val (firstPageX, firstPageY) = page.viewportTransformer.viewToPageCoordinates(points[0].x, points[0].y)
+        path.moveTo(firstPageX, firstPageY)
 
+        // Transform each subsequent point from view to page coordinates
         for (i in 1 until points.size) {
-            path.lineTo(points[i].x, points[i].y)
+            val (pageX, pageY) = page.viewportTransformer.viewToPageCoordinates(points[i].x, points[i].y)
+            path.lineTo(pageX, pageY)
         }
 
         var outPath = android.graphics.Path()
