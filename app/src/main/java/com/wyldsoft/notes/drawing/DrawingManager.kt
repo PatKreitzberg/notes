@@ -1,17 +1,14 @@
 package com.wyldsoft.notes.classes.drawing
 
-import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.RectF
-import androidx.compose.ui.unit.IntOffset
-import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.Stroke
 import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Responsible for managing the drawing operations.

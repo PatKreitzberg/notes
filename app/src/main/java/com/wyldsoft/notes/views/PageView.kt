@@ -1,4 +1,4 @@
-package com.wyldsoft.notes.classes
+package com.wyldsoft.notes.views
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -10,7 +10,6 @@ import android.graphics.RectF
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow

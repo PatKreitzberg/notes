@@ -2,8 +2,7 @@ package com.wyldsoft.notes.classes.drawing
 
 import android.graphics.RectF
 import android.view.SurfaceView
-import androidx.compose.ui.unit.IntOffset
-import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.pagination.PageRenderer
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer

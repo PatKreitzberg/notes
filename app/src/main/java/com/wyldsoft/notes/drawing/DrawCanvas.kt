@@ -1,4 +1,4 @@
-package com.wyldsoft.notes.classes
+package com.wyldsoft.notes.drawing
 
 import android.content.Context
 import android.view.SurfaceHolder
@@ -13,14 +13,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import com.wyldsoft.notes.gesture.GestureDetector
 import com.wyldsoft.notes.gesture.GestureEvent
 import com.wyldsoft.notes.gesture.GestureNotifier
 import com.wyldsoft.notes.gesture.GestureType
-import kotlinx.coroutines.launch
-import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
+import com.wyldsoft.notes.views.PageView
 
 
 /**

@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
-import com.wyldsoft.notes.classes.PageView
+import com.wyldsoft.notes.views.PageView
 
 enum class Mode {
     Draw, Erase
