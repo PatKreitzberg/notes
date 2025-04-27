@@ -1,8 +1,6 @@
-// app/src/main/java/com/wyldsoft/notes/transform/ViewportTransformer.kt
 package com.wyldsoft.notes.transform
 
 import android.content.Context
-import android.graphics.Rect
 import android.graphics.RectF
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +69,8 @@ class ViewportTransformer(
     fun isRectVisible(rect: RectF): Boolean {
         val transformedTop = rect.top - scrollY
         val transformedBottom = rect.bottom - scrollY
+        println("scroll isRectVisible transformedBottom $transformedBottom transformedTop $transformedTop  viewHeight $viewHeight")
+
         return !(transformedBottom < 0 || transformedTop > viewHeight)
     }
 

@@ -10,7 +10,6 @@ import android.graphics.RectF
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +19,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import com.wyldsoft.notes.transform.ViewportTransformer
+import androidx.core.graphics.createBitmap
 
 /**
  * Responsible for managing the page content and rendering.
@@ -33,7 +33,7 @@ class PageView(
     var viewWidth: Int,
     var viewHeight: Int
 ) {
-    var windowedBitmap = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
+    var windowedBitmap = createBitmap(viewWidth, viewHeight)
     var windowedCanvas = Canvas(windowedBitmap)
     var strokes = listOf<Stroke>()
     private var strokesById: HashMap<String, Stroke> = hashMapOf()
@@ -140,7 +140,7 @@ class PageView(
         os.close()
     }
 
-    fun persistBitmapDebounced() {
+    private fun persistBitmapDebounced() {
         coroutineScope.launch {
             saveTopic.emit(Unit)
         }
@@ -163,20 +163,12 @@ class PageView(
                 return@forEach
             }
 
-            // Check if stroke is visible in current viewport
-            val strokeRectF = RectF(
-                stroke.left,
-                stroke.top,
-                stroke.right,
-                stroke.bottom
-            )
-
-            if (!viewportTransformer.isRectVisible(strokeRectF)) {
+            if (!viewportTransformer.isRectVisible(RectF(stroke.left, stroke.top, stroke.right, stroke.bottom))) {
                 // Skip stroke if it's not visible in current viewport
+                println("scroll skip Stroke in drawArea")
                 return@forEach
             }
 
-            println("scroll drawArea drawStroke")
             // Draw the stroke with proper transformation
             drawStroke(activeCanvas, stroke)
         }
