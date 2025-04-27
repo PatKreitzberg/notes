@@ -204,6 +204,7 @@ class SelectionHandler(
     }
 
     // Update the position of the selection during move
+    // In SelectionHandler.kt, modify the updateMovingSelection method
     fun updateMovingSelection(x: Float, y: Float) {
         if (!editorState.selectionState.isMovingSelection) return
 
@@ -212,7 +213,7 @@ class SelectionHandler(
 
         val startPoint = editorState.selectionState.moveStartPoint ?: return
 
-        // Calculate the displacement
+        // Calculate the displacement in page coordinates
         val deltaX = pageX - startPoint.x
         val deltaY = pageY - startPoint.y
 
@@ -233,13 +234,11 @@ class SelectionHandler(
         // Update selection bounds
         editorState.selectionState.selectionBounds = newBounds
 
-        // Store move offset for later use in completeMovingSelection
+        // Store move offset for later use
         editorState.selectionState.moveOffset = Offset(deltaX, deltaY)
 
-        // Periodic UI updates to avoid ghosting - every 3 points
-        if (editorState.selectionState.selectionPoints.size % 3 == 0) {
-            refreshUi()
-        }
+        // Force UI update
+        refreshUi()
     }
 
     // Helper to check if movement stays within boundaries
@@ -313,16 +312,13 @@ class SelectionHandler(
             )
         }
 
-        // Remove old strokes and add new ones - use PageView methods
+        // Remove old strokes and add new ones
         val strokeIds = selectedStrokes.map { it.id }
         page.removeStrokes(strokeIds)
         page.addStrokes(updatedStrokes)
 
         // Update the selection with the new strokes
         editorState.selectionState.selectedStrokes = updatedStrokes
-
-        // Update bounds
-        calculateSelectionBounds()
 
         // Reset move state
         editorState.selectionState.isMovingSelection = false
@@ -424,6 +420,7 @@ class SelectionHandler(
     }
 
     // Render the selection on the canvas
+    // In SelectionHandler.kt, modify the renderSelection method
     fun renderSelection(canvas: Canvas) {
         // If currently drawing selection, draw the path
         if (editorState.selectionState.isDrawingSelection) {
@@ -443,7 +440,7 @@ class SelectionHandler(
         // Draw selection bounds
         val bounds = editorState.selectionState.selectionBounds ?: return
 
-        // Transform to view coordinates
+        // Transform to view coordinates - ensure consistent transformation
         val viewBounds = RectF(
             bounds.left,
             bounds.top - viewportTransformer.scrollY,
@@ -451,7 +448,7 @@ class SelectionHandler(
             bounds.bottom - viewportTransformer.scrollY
         )
 
-        // Draw highlight and border
+        // Draw highlight and border with consistent coordinates
         canvas.drawRect(viewBounds, highlightPaint)
         canvas.drawRect(viewBounds, borderPaint)
     }
