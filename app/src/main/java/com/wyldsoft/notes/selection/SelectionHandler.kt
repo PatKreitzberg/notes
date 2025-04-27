@@ -205,20 +205,24 @@ class SelectionHandler(
 
     // Update the position of the selection during move
     // In SelectionHandler.kt, modify the updateMovingSelection method
+    // Update the position of the selection during move
     fun updateMovingSelection(x: Float, y: Float) {
         if (!editorState.selectionState.isMovingSelection) return
 
         // Transform to page coordinates
         val (pageX, pageY) = viewportTransformer.viewToPageCoordinates(x, y)
 
-        val startPoint = editorState.selectionState.moveStartPoint ?: return
+        // Get the last move position
+        val lastMovePoint = editorState.selectionState.moveStartPoint ?: return
 
-        // Calculate the displacement in page coordinates
-        val deltaX = pageX - startPoint.x
-        val deltaY = pageY - startPoint.y
+        // Calculate the displacement from the last position
+        val deltaX = pageX - lastMovePoint.x
+        val deltaY = pageY - lastMovePoint.y
 
-        // Check page boundaries
+        // Get current bounds
         val bounds = editorState.selectionState.selectionBounds ?: return
+
+        // Calculate new bounds based on the delta
         val newBounds = RectF(
             bounds.left + deltaX,
             bounds.top + deltaY,
@@ -234,24 +238,34 @@ class SelectionHandler(
         // Update selection bounds
         editorState.selectionState.selectionBounds = newBounds
 
-        // Store move offset for later use
-        editorState.selectionState.moveOffset = Offset(deltaX, deltaY)
+        // Update the cumulative move offset (add to existing offset)
+        val currentOffset = editorState.selectionState.moveOffset
+        editorState.selectionState.moveOffset = Offset(
+            currentOffset.x + deltaX,
+            currentOffset.y + deltaY
+        )
+
+        // IMPORTANT: Update the move start point to the current position for next delta
+        editorState.selectionState.moveStartPoint = SimplePointF(pageX, pageY)
 
         // Force UI update
         refreshUi()
     }
 
     // Helper to check if movement stays within boundaries
+    // Helper to check if movement stays within boundaries
     private fun isMovementWithinBoundaries(newBounds: RectF): Boolean {
-        // Ensure the selection stays within page boundaries
-        val documentHeight = viewportTransformer.documentHeight.toFloat()
+        // Ensure the selection stays within page width boundaries only
+        // We don't need to restrict vertical movement as much
         val documentWidth = page.width.toFloat()
 
-        // Skip if would move outside bounds
-        if (newBounds.left < 0 || newBounds.right > documentWidth ||
-            newBounds.top < 0 || newBounds.bottom > documentHeight) {
+        // Only restrict horizontal bounds to page width
+        if (newBounds.left < 0 || newBounds.right > documentWidth) {
             return false
         }
+
+        // Allow vertical movement without restriction to document height
+        // This allows moving down past the original view
 
         // If pagination is enabled, check if selection crosses page boundaries
         if (viewportTransformer.getPaginationManager().isPaginationEnabled) {
@@ -261,7 +275,8 @@ class SelectionHandler(
             val topPageIndex = paginationManager.getPageIndexForY(newBounds.top)
             val bottomPageIndex = paginationManager.getPageIndexForY(newBounds.bottom)
 
-            // If selection would cross a page boundary, check exclusion zones
+            // If selection would cross a page boundary, only check exclusion zones
+            // This allows movement within a page or across pages, but not into exclusion zones
             if (topPageIndex != bottomPageIndex) {
                 // Check if any part would be in exclusion zone
                 for (pageIndex in topPageIndex until bottomPageIndex) {
@@ -276,6 +291,7 @@ class SelectionHandler(
             }
         }
 
+        // If we've passed all the checks, allow the movement
         return true
     }
 

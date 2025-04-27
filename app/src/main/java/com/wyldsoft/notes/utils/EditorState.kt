@@ -37,6 +37,7 @@ class SelectionState {
     // For move operation
     var isMovingSelection by mutableStateOf(false)
     var moveStartPoint by mutableStateOf<SimplePointF?>(null)
+    var lastMovePoint by mutableStateOf<SimplePointF?>(null)
     var selectionBounds by mutableStateOf<RectF?>(null)
     var moveOffset = Offset(0f, 0f) // Simplify with single offset property
 
@@ -53,6 +54,7 @@ class SelectionState {
         selectionPoints.clear()
         isMovingSelection = false
         moveStartPoint = null
+        lastMovePoint = null
         selectionBounds = null
         moveOffset = Offset(0f, 0f)
     }
