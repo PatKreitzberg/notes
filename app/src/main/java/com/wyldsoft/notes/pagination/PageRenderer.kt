@@ -53,7 +53,8 @@ class PageRenderer(
             settings.paperSize,
             viewportTop,
             viewportHeight,
-            viewportWidth
+            viewportWidth,
+            if (paginationManager.isPaginationEnabled) paginationManager else null
         )
 
         if (!paginationManager.isPaginationEnabled) return
