@@ -21,8 +21,8 @@ class DrawingManager(private val page: PageView) {
         val isDrawing = MutableSharedFlow<Boolean>()
         val restartAfterConfChange = MutableSharedFlow<Unit>()
         val drawingInProgress = Mutex()
+        val isStrokeOptionsOpen = MutableSharedFlow<Boolean>()
     }
-
     private val strokeHistoryBatch = mutableListOf<String>()
 
     private fun convertAndCreateBoundingBox(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>, strokeSize: Float): RectF {

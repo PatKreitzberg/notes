@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,21 +38,24 @@ import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.templates.TemplateRenderer
 import androidx.compose.runtime.rememberCoroutineScope
 
-
 @Composable
 fun Toolbar(
     state: EditorState,
     settingsRepository: SettingsRepository,
     viewportTransformer: ViewportTransformer,
     templateRenderer: TemplateRenderer,
-    noteTitle: String, // Add this parameter
-    onUpdateNoteName: (String) -> Unit // Add this parameter
+    noteTitle: String,
+    onUpdateNoteName: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var isColorSelectionOpen by remember { mutableStateOf(false) }
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
+
+
+    fun handleEraser() {
+        state.mode = Mode.Erase
+    }
 
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
@@ -62,8 +66,10 @@ fun Toolbar(
         }
     }
 
-    fun handleEraser() {
-        state.mode = Mode.Erase
+    // Expose the stroke selection state to the DrawCanvas
+    LaunchedEffect(isStrokeSelectionOpen) {
+        // Notify the DrawingManager about panel state changes
+        com.wyldsoft.notes.classes.drawing.DrawingManager.isStrokeOptionsOpen.emit(isStrokeSelectionOpen)
     }
 
     fun onChangeStrokeSetting(penName: String, setting: PenSetting) {
@@ -223,92 +229,17 @@ fun Toolbar(
                     .height(1.dp)
                     .background(androidx.compose.ui.graphics.Color.Black)
             )
-
             if (isStrokeSelectionOpen) {
-                // Implement stroke size and color selection UI here
-                Row(
-                    Modifier
-                        .background(androidx.compose.ui.graphics.Color.White)
-                        .padding(8.dp)
-                ) {
-                    // Stroke sizes
-                    ToolbarButton(
-                        text = "S",
-                        isSelected = state.penSettings[state.pen.penName]?.strokeSize == 3f,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(strokeSize = 3f))
-                            isStrokeSelectionOpen = false
-                        }
-                    )
-
-                    ToolbarButton(
-                        text = "M",
-                        isSelected = state.penSettings[state.pen.penName]?.strokeSize == 5f,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(strokeSize = 5f))
-                            isStrokeSelectionOpen = false
-                        }
-                    )
-
-                    ToolbarButton(
-                        text = "L",
-                        isSelected = state.penSettings[state.pen.penName]?.strokeSize == 10f,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(strokeSize = 10f))
-                            isStrokeSelectionOpen = false
-                        }
-                    )
-
-                    ToolbarButton(
-                        text = "XL",
-                        isSelected = state.penSettings[state.pen.penName]?.strokeSize == 20f,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(strokeSize = 20f))
-                            isStrokeSelectionOpen = false
-                        }
-                    )
-
-                    // Color options
-                    ColorButton(
-                        color = androidx.compose.ui.graphics.Color.Black,
-                        isSelected = state.penSettings[state.pen.penName]?.color == Color.BLACK,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(color = Color.BLACK))
-                        }
-                    )
-
-                    ColorButton(
-                        color = androidx.compose.ui.graphics.Color.Red,
-                        isSelected = state.penSettings[state.pen.penName]?.color == Color.RED,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(color = Color.RED))
-                        }
-                    )
-
-                    ColorButton(
-                        color = androidx.compose.ui.graphics.Color.Blue,
-                        isSelected = state.penSettings[state.pen.penName]?.color == Color.BLUE,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(color = Color.BLUE))
-                        }
-                    )
-
-                    ColorButton(
-                        color = androidx.compose.ui.graphics.Color.Gray,
-                        isSelected = state.penSettings[state.pen.penName]?.color == Color.GRAY,
-                        onSelect = {
-                            onChangeStrokeSetting(state.pen.penName,
-                                state.penSettings[state.pen.penName]!!.copy(color = Color.GRAY))
-                        }
-                    )
-                }
+                StrokeOptionPanel(
+                    currentPenName = state.pen.penName,
+                    currentSetting = state.penSettings[state.pen.penName]!!,
+                    onSettingChanged = { newSetting ->
+                        val settings = state.penSettings.toMutableMap()
+                        settings[state.pen.penName] = newSetting
+                        state.penSettings = settings
+                    },
+                    onDismiss = { isStrokeSelectionOpen = false }
+                )
             }
         }
     } else {

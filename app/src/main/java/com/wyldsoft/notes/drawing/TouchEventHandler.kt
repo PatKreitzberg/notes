@@ -57,6 +57,8 @@ class TouchEventHandler(
     private val canvasRenderer: CanvasRenderer,
     private val viewportTransformer: ViewportTransformer
 ) {
+    private var isStrokeOptionsPanelOpen = false
+
     // Get maximum pressure from the device
     private val pressure = EpdController.getMaxTouchPressure()
     private var referencedSurfaceView: String = ""
@@ -103,6 +105,15 @@ class TouchEventHandler(
             // Only pass to gesture detector if not consumed by scroll tracker
             if (!consumed) {
                 return@setOnTouchListener gestureDetector.processTouchEvent(event)
+            }
+
+            // Add observer for stroke options panel state
+            coroutineScope.launch {
+                DrawingManager.isStrokeOptionsOpen.collect { isOpen ->
+                    isStrokeOptionsPanelOpen = isOpen
+                    // When the panel state changes, update the active surface
+                    updateActiveSurface()
+                }
             }
 
             return@setOnTouchListener consumed
@@ -238,21 +249,34 @@ class TouchEventHandler(
 
     fun updateActiveSurface() {
         println("Update editable surface")
-        val exclusionHeight = if (state.isToolbarOpen) convertDpToPixel(40.dp, context).toInt() else 0
+        val toolbarHeight = if (state.isToolbarOpen) convertDpToPixel(40.dp, context).toInt() else 0
+
+        // Calculate the height of the stroke options panel if it's open
+        val optionsPanelHeight = if (isStrokeOptionsPanelOpen) {
+            // Use our estimated height for the options panel
+            convertDpToPixel(310.dp, context).toInt()
+        } else {
+            0
+        }
 
         setRawDrawingEnabled(false)
         closeRawDrawing()
 
+        // Create combined exclusion height for toolbar + options panel
+        val topExclusionHeight = toolbarHeight + optionsPanelHeight
+
+        // Set exclude rect for toolbar + options panel if open
+        val topExcludeRect = Rect(0, 0, surfaceView.width, topExclusionHeight)
+
         // Set exclude rect for toolbar
-        val toolbarExcludeRect = Rect(0, 0, surfaceView.width, exclusionHeight)
+        // val toolbarExcludeRect = Rect(0, 0, surfaceView.width, exclusionHeight)
 
         // Create a list of exclusion zones if pagination is enabled
-        val excludeRects = mutableListOf(toolbarExcludeRect)
+        val excludeRects = mutableListOf(topExcludeRect)
 
         println("exclusion paginationManager.isPaginationEnabled=${paginationManager.isPaginationEnabled}")
         // Add pagination exclusion zones if enabled
         if (paginationManager.isPaginationEnabled) {
-
             val viewportTop = viewportTransformer.scrollY
             val viewportHeight = surfaceView.height.toFloat()
 
