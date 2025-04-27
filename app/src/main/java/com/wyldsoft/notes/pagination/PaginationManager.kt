@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.convertDpToPixel
+import com.wyldsoft.notes.settings.PaperSize
+
 
 /**
  * Manages pagination for the notes application
@@ -22,15 +24,46 @@ class PaginationManager(private val context: Context) {
     // 1 inch = 96dp (standard Android conversion)
     private val pageWidthDp = 8.5f * 96f
     private val pageHeightDp = 11f * 96f
+    private var pageWidthPx: Float = 0f
+    var pageHeightPx: Float = 0f
+    private val exclusionZoneHeightPx: Float
 
     // Exclusion zone properties
     private val exclusionZoneHeightDp = 40.dp
     val exclusionZoneColor = Color.rgb(173, 216, 230) // Light blue color
 
-    // Convert dp values to pixels for actual use
-    val pageWidthPx = convertDpToPixel(pageWidthDp.dp, context)
-    val pageHeightPx = convertDpToPixel(pageHeightDp.dp, context)
-    val exclusionZoneHeightPx = convertDpToPixel(exclusionZoneHeightDp, context)
+
+    init {
+        // Initialize with Letter size by default
+        exclusionZoneHeightPx = convertDpToPixel(exclusionZoneHeightDp, context)
+        updatePageDimensions(PaperSize.LETTER)
+    }
+
+    /**
+     * Updates page dimensions based on selected paper size
+     */
+    fun updatePaperSize(paperSize: PaperSize) {
+        updatePageDimensions(paperSize)
+    }
+
+    private fun updatePageDimensions(paperSize: PaperSize) {
+        when (paperSize) {
+            PaperSize.LETTER -> {
+                // Letter size: 8.5" x 11"
+                val letterWidthDp = 8.5f * 96f
+                val letterHeightDp = 11f * 96f
+                pageWidthPx = convertDpToPixel(letterWidthDp.dp, context)
+                pageHeightPx = convertDpToPixel(letterHeightDp.dp, context)
+            }
+            PaperSize.A4 -> {
+                // A4 size: 210mm x 297mm (8.27" x 11.69")
+                val a4WidthDp = 8.27f * 96f
+                val a4HeightDp = 11.69f * 96f
+                pageWidthPx = convertDpToPixel(a4WidthDp.dp, context)
+                pageHeightPx = convertDpToPixel(a4HeightDp.dp, context)
+            }
+        }
+    }
 
     /**
      * Calculates the top Y coordinate of the specified page

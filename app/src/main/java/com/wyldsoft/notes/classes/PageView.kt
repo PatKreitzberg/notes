@@ -20,6 +20,8 @@ import java.io.File
 import java.io.FileOutputStream
 import com.wyldsoft.notes.transform.ViewportTransformer
 import androidx.core.graphics.createBitmap
+import com.wyldsoft.notes.settings.SettingsRepository
+
 
 /**
  * Responsible for managing the page content and rendering.
@@ -58,17 +60,24 @@ class PageView(
 
     fun initializeViewportTransformer(
         context: Context,
-        coroutineScope: CoroutineScope
+        coroutineScope: CoroutineScope,
+        settingsRepository: SettingsRepository = SettingsRepository(context)
     ) {
         _viewportTransformer = ViewportTransformer(
             context = context,
             coroutineScope = coroutineScope,
             viewWidth = viewWidth,
-            viewHeight = viewHeight
+            viewHeight = viewHeight,
+            settingsRepository = settingsRepository
         )
 
         // Initialize with current height
         _viewportTransformer?.updateDocumentHeight(height)
+
+        // Apply saved settings
+        val settings = settingsRepository.getSettings()
+        _viewportTransformer?.updatePaginationState(settings.isPaginationEnabled)
+        _viewportTransformer?.updatePaperSizeState(settings.paperSize)
 
         // Listen to viewport changes
         coroutineScope.launch {

@@ -5,6 +5,8 @@ import android.view.SurfaceView
 import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.classes.PageView
 import com.wyldsoft.notes.pagination.PageRenderer
+import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.templates.TemplateRenderer
 
 /**
  * Handles rendering the canvas content to the screen.
@@ -12,10 +14,15 @@ import com.wyldsoft.notes.pagination.PageRenderer
  */
 class CanvasRenderer(
     private val surfaceView: SurfaceView,
-    private val page: PageView
+    private val page: PageView,
+    private val settingsRepository: SettingsRepository,
+    private val templateRenderer: TemplateRenderer
 ) {
-    private val pageRenderer: PageRenderer = PageRenderer(page.viewportTransformer)
-
+    private val pageRenderer: PageRenderer = PageRenderer(
+        page.viewportTransformer,
+        settingsRepository,
+        templateRenderer
+    )
     /**
      * Renders the current page state to the surface view
      */

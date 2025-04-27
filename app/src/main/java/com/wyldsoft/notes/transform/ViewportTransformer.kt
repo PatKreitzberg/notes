@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
+import com.wyldsoft.notes.settings.PaperSize
+import com.wyldsoft.notes.settings.SettingsRepository
+
 
 /**
  * Handles viewport transformations including scrolling and coordinates translation.
@@ -23,7 +26,8 @@ class ViewportTransformer(
     private val context: Context,
     private val coroutineScope: CoroutineScope,
     private val viewWidth: Int,
-    private val viewHeight: Int
+    private val viewHeight: Int,
+    val settingsRepository: SettingsRepository
 ) {
     // Viewport position
     var scrollY by mutableStateOf(0f)
@@ -74,6 +78,15 @@ class ViewportTransformer(
         return Pair(x, y + scrollY)
     }
 
+    /**
+     * Updates the paper size
+     */
+    fun updatePaperSizeState(paperSize: PaperSize) {
+        paginationManager.updatePaperSize(paperSize)
+
+        // Notify that viewport has changed
+        notifyViewportChanged()
+    }
 
     /**
      * Determines if a rect in page coordinates is visible in the current viewport

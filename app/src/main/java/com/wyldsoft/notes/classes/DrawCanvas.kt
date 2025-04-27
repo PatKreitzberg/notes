@@ -19,6 +19,8 @@ import com.wyldsoft.notes.gesture.GestureNotifier
 import com.wyldsoft.notes.gesture.GestureType
 import kotlinx.coroutines.launch
 import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.templates.TemplateRenderer
 
 
 /**
@@ -29,9 +31,11 @@ class DrawCanvas(
     context: Context,
     val coroutineScope: CoroutineScope,
     val state: EditorState,
-    val page: PageView
+    val page: PageView,
+    val settingsRepository: SettingsRepository,
+    val templateRenderer: TemplateRenderer
 ) : SurfaceView(context) {
-    private val canvasRenderer = CanvasRenderer(this, page)
+    private val canvasRenderer = CanvasRenderer(this, page, settingsRepository, templateRenderer)
     private val drawingManager = DrawingManager(page)
     private val touchEventHandler = TouchEventHandler(
         context,

@@ -2,7 +2,6 @@ package com.wyldsoft.notes.components
 
 import android.graphics.Color
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,14 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.Icon
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Undo
@@ -29,24 +24,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.classes.DrawCanvas
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.Mode
 import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.PenSetting
-import com.wyldsoft.notes.utils.noRippleClickable
 import kotlinx.coroutines.launch
+import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.templates.TemplateRenderer
+import androidx.compose.runtime.rememberCoroutineScope
+
 
 @Composable
 fun Toolbar(
-    state: EditorState
+    state: EditorState,
+    settingsRepository: SettingsRepository,
+    viewportTransformer: ViewportTransformer,
+    templateRenderer: TemplateRenderer
 ) {
     val scope = rememberCoroutineScope()
     var isColorSelectionOpen by remember { mutableStateOf(false) }
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+
 
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
@@ -167,6 +170,41 @@ fun Toolbar(
                     imageVector = Icons.Default.Redo,
                     contentDescription = "Redo"
                 )
+                Spacer(Modifier.weight(1f))
+
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(0.5.dp)
+                        .background(androidx.compose.ui.graphics.Color.Black)
+                )
+
+                // Settings button
+                SettingsButton(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    onClick = { showSettings = true }
+                )
+
+                // Show settings dialog if needed
+                if (showSettings) {
+                    SettingsDialog(
+                        settingsRepository = settingsRepository,
+                        onUpdateViewportTransformer = { isPaginationEnabled ->
+                            viewportTransformer.updatePaginationState(isPaginationEnabled)
+                        },
+                        onUpdatePageDimensions = { paperSize ->
+                            // Handle paper size changes
+                            viewportTransformer.updatePaperSizeState(paperSize)
+                        },
+                        onUpdateTemplate = { template ->
+                            // Template changes require a UI refresh
+                            scope.launch {  // Using scope instead of coroutineScope
+                                DrawingManager.refreshUi.emit(Unit)
+                            }
+                        },
+                        onDismiss = { showSettings = false }
+                    )
+                }
             }
 
             Box(

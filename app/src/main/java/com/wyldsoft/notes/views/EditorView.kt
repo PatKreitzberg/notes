@@ -21,12 +21,20 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.components.ScrollIndicator
 import com.wyldsoft.notes.components.TopBoundaryIndicator
 import java.util.UUID
+import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.templates.TemplateRenderer
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EditorView() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Initialize settings repository
+    val settingsRepository = remember { SettingsRepository(context) }
+
+    // Initialize template renderer
+    val templateRenderer = remember { TemplateRenderer(context) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val height = convertDpToPixel(this.maxHeight, context).toInt()
@@ -43,7 +51,7 @@ fun EditorView() {
                 viewWidth = width,
                 viewHeight = height
             ).apply {
-                initializeViewportTransformer(context, scope)
+                initializeViewportTransformer(context, scope, settingsRepository)
             }
         }
 
@@ -61,7 +69,9 @@ fun EditorView() {
             Box(modifier = Modifier.fillMaxSize()) {
                 EditorSurface(
                     state = editorState,
-                    page = page
+                    page = page,
+                    settingsRepository = settingsRepository,
+                    templateRenderer = templateRenderer
                 )
 
                 // Add scroll indicator
@@ -77,7 +87,10 @@ fun EditorView() {
                 )
 
                 Toolbar(
-                    state = editorState
+                    state = editorState,
+                    settingsRepository = settingsRepository,
+                    viewportTransformer = page.viewportTransformer,
+                    templateRenderer = templateRenderer
                 )
             }
         }

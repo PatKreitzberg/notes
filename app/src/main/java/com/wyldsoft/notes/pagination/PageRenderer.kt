@@ -8,12 +8,17 @@ import android.graphics.RectF
 import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.utils.convertDpToPixel
+import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.templates.TemplateRenderer
+
 
 /**
  * Renders pagination visual elements like page numbers and exclusion zones
  */
 class PageRenderer(
-    private val viewportTransformer: ViewportTransformer
+    private val viewportTransformer: ViewportTransformer,
+    private val settingsRepository: SettingsRepository,
+    private val templateRenderer: TemplateRenderer
 ) {
     private val paginationManager = viewportTransformer.getPaginationManager()
 
@@ -35,12 +40,23 @@ class PageRenderer(
      * Renders pagination elements on the canvas
      */
     fun renderPaginationElements(canvas: Canvas) {
-        if (!paginationManager.isPaginationEnabled) return
-
         // Get current viewport
         val viewportTop = viewportTransformer.scrollY
         val viewportHeight = canvas.height.toFloat()
-        val viewportRight = canvas.width.toFloat()
+        val viewportWidth = canvas.width.toFloat()
+
+        // Render the selected template
+        val settings = settingsRepository.getSettings()
+        templateRenderer.renderTemplate(
+            canvas,
+            settings.template,
+            settings.paperSize,
+            viewportTop,
+            viewportHeight,
+            viewportWidth
+        )
+
+        if (!paginationManager.isPaginationEnabled) return
 
         // Calculate visible page range
         val firstVisiblePageIndex = paginationManager.getPageIndexForY(viewportTop)
@@ -50,8 +66,10 @@ class PageRenderer(
         renderExclusionZones(canvas, firstVisiblePageIndex, lastVisiblePageIndex)
 
         // Draw page numbers
-        renderPageNumbers(canvas, firstVisiblePageIndex, lastVisiblePageIndex, viewportTop, viewportRight)
+        renderPageNumbers(canvas, firstVisiblePageIndex, lastVisiblePageIndex, viewportTop, viewportWidth)
     }
+
+
 
     /**
      * Renders exclusion zones between pages
