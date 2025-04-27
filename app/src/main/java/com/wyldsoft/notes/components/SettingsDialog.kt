@@ -1,9 +1,10 @@
-// Modifications to app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
+// app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
 package com.wyldsoft.notes.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,12 +13,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Button
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +50,7 @@ fun SettingsDialog(
     onUpdatePageDimensions: (PaperSize) -> Unit,
     onUpdateTemplate: (TemplateType) -> Unit,
     onUpdateNoteName: (String) -> Unit,
+    onShowBackupDialog: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -209,12 +216,35 @@ fun SettingsDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Backup settings button
+            Button(
+                onClick = {
+                    onDismiss()  // Close the settings dialog
+                    onShowBackupDialog()  // Open the backup dialog
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Backup,
+                        contentDescription = "Backup Settings"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Backup and Restore")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Button row at the bottom
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                horizontalArrangement = Arrangement.End
             ) {
-                androidx.compose.material.TextButton(
+                TextButton(
                     onClick = onDismiss
                 ) {
                     Text("Cancel")
@@ -222,7 +252,7 @@ fun SettingsDialog(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                androidx.compose.material.Button(
+                Button(
                     onClick = {
                         // Save note name if it has changed and is not empty
                         if (noteName.isNotBlank() && noteName != currentNoteName) {

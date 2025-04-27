@@ -10,6 +10,17 @@ plugins {
 }
 
 android {
+    packagingOptions {
+        exclude("META-INF/DEPENDENCIES")
+        exclude("META-INF/LICENSE")
+        exclude("META-INF/LICENSE.txt")
+        exclude("META-INF/license.txt")
+        exclude("META-INF/NOTICE")
+        exclude("META-INF/NOTICE.txt")
+        exclude("META-INF/notice.txt")
+        exclude("META-INF/ASL2.0")
+        exclude("META-INF/*.kotlin_module")
+    }
     compileSdk 35
 
     defaultConfig {
@@ -113,7 +124,6 @@ android {
     }
     namespace 'com.wyldsoft.notes'
 }
-
 dependencies {
 
     implementation 'androidx.core:core-ktx:1.15.0'
@@ -148,7 +158,6 @@ dependencies {
     implementation group: 'io.reactivex.rxjava2', name: 'rxjava', version: '2.2.21'
     implementation group: 'io.reactivex.rxjava2', name: 'rxandroid', version: '2.1.1'
     implementation libs.androidx.material3.android
-    implementation libs.androidx.room.runtime.android
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
@@ -186,8 +195,20 @@ dependencies {
     // For xopp file format
     implementation("org.apache.commons:commons-compress:1.27.1") // GZip support
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0"
-}
 
+    // Google Drive and Auth dependencies
+    implementation 'com.google.android.gms:play-services-auth:21.0.0'
+    implementation 'com.google.api-client:google-api-client-android:2.2.0'
+    implementation 'com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0'
+    implementation 'com.google.http-client:google-http-client-gson:1.42.3'
+    implementation 'com.google.http-client:google-http-client-android:1.42.3'
+    implementation 'com.google.oauth-client:google-oauth-client-jetty:1.34.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0'
+
+
+    // Optional - for showing progress indicators during upload
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
+}
 tasks.register('printVersionName') {
     println android.defaultConfig.versionName
 }

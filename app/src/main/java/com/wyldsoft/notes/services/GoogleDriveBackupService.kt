@@ -36,7 +36,6 @@ import java.util.Locale
  * functionality to backup the app's database to Google Drive.
  */
 class GoogleDriveBackupService(private val context: Context) {
-
     companion object {
         private const val TAG = "GoogleDriveBackupService"
         private const val APP_NAME = "Notes Backup"
@@ -78,7 +77,7 @@ class GoogleDriveBackupService(private val context: Context) {
         val signInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(Scope(DriveScopes.DRIVE_FILE))
-            .requestIdToken(activity.getString(R.string.google_oauth_client_id))
+            //.requestIdToken(activity.getString(R.string.google_oauth_client_id))
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(activity, signInOptions)

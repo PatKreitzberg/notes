@@ -51,6 +51,7 @@ fun Toolbar(
     var isColorSelectionOpen by remember { mutableStateOf(false) }
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
 
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
@@ -205,7 +206,13 @@ fun Toolbar(
                             }
                         },
                         onUpdateNoteName = onUpdateNoteName, // Pass the update callback
+                        onShowBackupDialog = { showBackupDialog = true },
                         onDismiss = { showSettings = false }
+                    )
+                }
+                if (showBackupDialog) {
+                    BackupSettingsDialog(
+                        onDismiss = { showBackupDialog = false }
                     )
                 }
             }
