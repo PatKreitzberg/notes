@@ -63,6 +63,7 @@ class ViewportTransformer(
         return Pair(x, y + scrollY)
     }
 
+
     /**
      * Determines if a rect in page coordinates is visible in the current viewport
      */
@@ -70,10 +71,6 @@ class ViewportTransformer(
         // Transform the rectangle from page coordinates to view coordinates
         val transformedBottom = rect.bottom - scrollY
         val transformedTop = rect.top - scrollY
-
-        // Debug logging to understand the transformation
-        println("scroll isRectVisible: original rect.bottom= ${rect.bottom} rect.top=${rect.top}")
-        println("scroll isRectVisible: transformedTop=$transformedTop, transformedBottom=$transformedBottom, scrollY=$scrollY, viewHeight=$viewHeight")
 
         // A rectangle is visible if ANY part of it is in the viewport
         // If the bottom is above the viewport (negative) OR top is below the viewport (> viewHeight), it's not visible
@@ -103,7 +100,6 @@ class ViewportTransformer(
         }
 
         println("scroll base scroll * speed ${baseScrollAmount*speedFactor}")
-
         return baseScrollAmount * speedFactor
     }
 

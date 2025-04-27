@@ -208,6 +208,7 @@ class PageView(
     fun drawStroke(canvas: Canvas, stroke: Stroke) {
         // Check if stroke is visible first
         if (!isStrokeVisible(stroke)) {
+            println("scroll drawStroke skip stroke=${stroke.createdScrollY}")
             return // Skip drawing if stroke is not visible
         }
 

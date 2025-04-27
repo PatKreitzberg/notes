@@ -25,5 +25,6 @@ data class Stroke(
     val points: List<StrokePoint>,
     val pageId: String,
     val createdAt: Date = Date(),
-    val updatedAt: Date = Date()
+    val updatedAt: Date = Date(),
+    val createdScrollY: Float
 )
