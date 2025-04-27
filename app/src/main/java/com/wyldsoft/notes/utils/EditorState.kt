@@ -8,9 +8,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
 import com.wyldsoft.notes.views.PageView
+import android.graphics.Path
+import androidx.compose.runtime.mutableStateListOf
+import android.graphics.RectF
+import androidx.compose.ui.geometry.Offset
 
 enum class Mode {
-    Draw, Erase
+    Draw, Erase, Selection
 }
 
 enum class PlacementMode {
@@ -19,20 +23,38 @@ enum class PlacementMode {
 }
 
 class SelectionState {
+    // Existing properties for general selection
     var selectedStrokes by mutableStateOf<List<Stroke>?>(null)
     var selectedBitmap by mutableStateOf<Bitmap?>(null)
-    var selectionStartOffset by mutableStateOf<IntOffset?>(null)
-    var selectionDisplaceOffset by mutableStateOf<IntOffset?>(null)
     var selectionRect by mutableStateOf<Rect?>(null)
     var placementMode by mutableStateOf<PlacementMode?>(null)
+
+    // For selection path drawing
+    var selectionPath by mutableStateOf<Path?>(null)
+    var isDrawingSelection by mutableStateOf(false)
+    var selectionPoints = mutableStateListOf<SimplePointF>()
+
+    // For move operation
+    var isMovingSelection by mutableStateOf(false)
+    var moveStartPoint by mutableStateOf<SimplePointF?>(null)
+    var selectionBounds by mutableStateOf<RectF?>(null)
+    var moveOffset = Offset(0f, 0f) // Simplify with single offset property
+
+    // Remove redundant properties that duplicate selection bounds info
+    // selectionStartOffset and selectionDisplaceOffset can be derived
 
     fun reset() {
         selectedStrokes = null
         selectedBitmap = null
-        selectionStartOffset = null
         selectionRect = null
-        selectionDisplaceOffset = null
         placementMode = null
+        selectionPath = null
+        isDrawingSelection = false
+        selectionPoints.clear()
+        isMovingSelection = false
+        moveStartPoint = null
+        selectionBounds = null
+        moveOffset = Offset(0f, 0f)
     }
 }
 

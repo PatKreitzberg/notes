@@ -19,12 +19,9 @@ import com.wyldsoft.notes.gesture.GestureType
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.wyldsoft.notes.selection.SelectionHandler
 
 /*
  * The main canvas component that coordinates all drawing operations.
@@ -38,25 +35,44 @@ class DrawCanvas(
     val settingsRepository: SettingsRepository,
     val templateRenderer: TemplateRenderer
 ) : SurfaceView(context) {
-    private val canvasRenderer = CanvasRenderer(this, page, settingsRepository, templateRenderer)
-    private val drawingManager = DrawingManager(page)
-    private val touchEventHandler = TouchEventHandler(
-        context,
-        this,
-        coroutineScope,
-        state,
-        drawingManager,
-        canvasRenderer,
-        page.viewportTransformer
-    )
-
+    private lateinit var selectionHandler: SelectionHandler
+    private lateinit var canvasRenderer: CanvasRenderer
+    private lateinit var touchEventHandler: TouchEventHandler
     private var gestureNotifier = GestureNotifier()
 
     private val viewportTransformer get() = page.viewportTransformer
 
-
     fun init() {
         println("Initializing Canvas")
+
+        // Initialize selection handler
+        selectionHandler = SelectionHandler(
+            context,
+            state,
+            page,
+            coroutineScope
+        )
+
+        // Initialize canvas renderer with selection handler
+        canvasRenderer = CanvasRenderer(
+            this,
+            page,
+            settingsRepository,
+            templateRenderer,
+            state,
+            selectionHandler
+        )
+
+        // Initialize touch event handler
+        touchEventHandler = TouchEventHandler(
+            context,
+            this,
+            coroutineScope,
+            state,
+            DrawingManager(page),
+            canvasRenderer,
+            page.viewportTransformer
+        )
 
         val surfaceCallback: SurfaceHolder.Callback = object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -95,7 +111,6 @@ class DrawCanvas(
                 touchEventHandler.closeRawDrawing()
             }
         }
-
 
         // Setup touch event interception
         touchEventHandler.setupTouchInterception()

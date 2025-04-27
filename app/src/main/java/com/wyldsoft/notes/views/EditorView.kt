@@ -26,6 +26,7 @@ import com.wyldsoft.notes.templates.TemplateRenderer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.wyldsoft.notes.selection.SelectionHandler
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -41,6 +42,8 @@ fun EditorView(noteId: String? = null) {
 
     // Initialize template renderer
     val templateRenderer = remember { TemplateRenderer(context) }
+
+
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val height = convertDpToPixel(this.maxHeight, context).toInt()
@@ -60,6 +63,17 @@ fun EditorView(noteId: String? = null) {
             ).apply {
                 initializeViewportTransformer(context, scope, settingsRepository)
             }
+        }
+
+        val editorState = remember { EditorState(pageId = pageId, pageView = page) }
+
+        val selectionHandler = remember {
+            SelectionHandler(
+                context,
+                editorState,
+                page,
+                scope
+            )
         }
 
         // Load strokes from database if this is an existing note
@@ -124,7 +138,7 @@ fun EditorView(noteId: String? = null) {
             }
         }
 
-        val editorState = remember { EditorState(pageId = pageId, pageView = page) }
+
 
         // Set up save functionality for strokes (ADDITIONS)
         LaunchedEffect(Unit) {
@@ -178,6 +192,7 @@ fun EditorView(noteId: String? = null) {
                     settingsRepository = settingsRepository,
                     viewportTransformer = page.viewportTransformer,
                     templateRenderer = templateRenderer,
+                    selectionHandler = selectionHandler,
                     noteTitle = noteTitle,
                     onUpdateNoteName = { newName ->
                         // Handle the rename operation

@@ -28,6 +28,8 @@ import com.wyldsoft.notes.gesture.DirectScrollTracker
 import com.wyldsoft.notes.gesture.GestureDetector
 import com.wyldsoft.notes.pagination.PaginationManager
 import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.selection.SelectionHandler
+import com.wyldsoft.notes.views.PageView
 
 class PenStyleConverter {
     companion object {
@@ -66,6 +68,15 @@ class TouchEventHandler(
     private val paginationManager: PaginationManager
         get() = viewportTransformer.getPaginationManager()
 
+    private val selectionHandler by lazy {
+        SelectionHandler(
+            context,
+            state,
+            state.pageView,
+            coroutineScope
+        )
+    }
+
     /*
       start gesture detection
     */
@@ -89,29 +100,32 @@ class TouchEventHandler(
     fun setupTouchInterception() {
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
-            // If we're currently drawing with the stylus, don't process finger gestures
+            // If we're in drawing or erasing mode and already processing inputs, don't interrupt
             if (DrawingManager.drawingInProgress.isLocked || currentlyErasing) {
                 return@setOnTouchListener false
             }
 
-            // If it's a stylus event, let Onyx SDK handle it
+            // Handle selection mode first - it has priority for stylus events
+            if (state.mode == Mode.Selection && isStylusEvent(event)) {
+                selectionHandler.handleTouchEvent(event.action, event.x, event.y)
+                return@setOnTouchListener true
+            }
+
+            // For other modes, let the normal handling continue
             if (isStylusEvent(event)) {
                 return@setOnTouchListener false
             }
 
             // Process with scroll tracker for direct scrolling
             val consumed = scrollTracker.processTouchEvent(event)
-
-            // Only pass to gesture detector if not consumed by scroll tracker
             if (!consumed) {
                 return@setOnTouchListener gestureDetector.processTouchEvent(event)
             }
 
-            // Add observer for stroke options panel state
+            // Update observer as before
             coroutineScope.launch {
                 DrawingManager.isStrokeOptionsOpen.collect { isOpen ->
                     isStrokeOptionsPanelOpen = isOpen
-                    // When the panel state changes, update the active surface
                     updateActiveSurface()
                 }
             }
@@ -348,6 +362,13 @@ class TouchEventHandler(
                         }
                     }
                 }
+                Mode.Selection -> {
+                    println("DEBUG: Mode is SELECTION")
+                    // For selection mode, use a thin pen style for drawing the selection area
+                    touchHelper.setStrokeStyle(penToStroke(com.wyldsoft.notes.utils.Pen.BALLPEN))
+                        ?.setStrokeWidth(2f)
+                        ?.setStrokeColor(android.graphics.Color.BLUE)
+                }
             }
             println("DEBUG: updatePenAndStroke completed successfully")
         } catch (e: Exception) {
@@ -355,6 +376,7 @@ class TouchEventHandler(
             e.printStackTrace()
         }
     }
+
     private fun penToStroke(pen: Pen): Int {
         println("DEBUG: Converting pen ${pen.penName} to stroke style")
         val result = PenStyleConverter.convertPenToStrokeStyle(pen)

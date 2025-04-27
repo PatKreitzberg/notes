@@ -4,8 +4,11 @@ import android.graphics.RectF
 import android.view.SurfaceView
 import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.pagination.PageRenderer
+import com.wyldsoft.notes.selection.SelectionHandler
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
+import com.wyldsoft.notes.utils.EditorState
+import com.wyldsoft.notes.utils.Mode
 
 /**
  * Handles rendering the canvas content to the screen.
@@ -15,7 +18,9 @@ class CanvasRenderer(
     private val surfaceView: SurfaceView,
     private val page: PageView,
     private val settingsRepository: SettingsRepository,
-    private val templateRenderer: TemplateRenderer
+    private val templateRenderer: TemplateRenderer,
+    private val editorState: EditorState,
+    private val selectionHandler: SelectionHandler? = null
 ) {
     private val pageRenderer: PageRenderer = PageRenderer(
         page.viewportTransformer,
@@ -62,12 +67,15 @@ class CanvasRenderer(
             page.drawStroke(canvas, stroke)
         }
 
-        // Render pagination elements (page numbers and exclusion zones)
+        // Render pagination elements
         pageRenderer.renderPaginationElements(canvas)
+
+        // Render selection if in selection mode and handler exists
+        if (editorState.mode == Mode.Selection && selectionHandler != null) {
+            selectionHandler.renderSelection(canvas)
+        }
 
         // Finish rendering
         surfaceView.holder.unlockCanvasAndPost(canvas)
-
-        println("DEBUG: Canvas drawn to view")
     }
 }

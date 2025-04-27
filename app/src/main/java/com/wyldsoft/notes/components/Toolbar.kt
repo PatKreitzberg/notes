@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.Mode
+import com.wyldsoft.notes.utils.PlacementMode
 import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.PenSetting
 import kotlinx.coroutines.launch
@@ -37,6 +38,16 @@ import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.templates.TemplateRenderer
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.SelectAll
+import com.wyldsoft.notes.selection.SelectionHandler
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.Text  // Add this import for Text component
+import androidx.compose.ui.geometry.Offset  // Make sure this is imported for moveOffset
+
 
 @Composable
 fun Toolbar(
@@ -44,6 +55,7 @@ fun Toolbar(
     settingsRepository: SettingsRepository,
     viewportTransformer: ViewportTransformer,
     templateRenderer: TemplateRenderer,
+    selectionHandler: SelectionHandler,
     noteTitle: String,
     onUpdateNoteName: (String) -> Unit
 ) {
@@ -52,6 +64,10 @@ fun Toolbar(
     var showSettings by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
 
+    fun handleSelection() {
+        state.mode = Mode.Selection
+        state.selectionState.reset()
+    }
 
     fun handleEraser() {
         state.mode = Mode.Erase
@@ -153,6 +169,20 @@ fun Toolbar(
                 )
 
                 Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(0.5.dp)
+                        .background(androidx.compose.ui.graphics.Color.Black)
+                )
+
+                // Selection button
+                ToolbarButton(
+                    onSelect = { handleSelection() },
+                    imageVector = Icons.Default.SelectAll,
+                    isSelected = state.mode == Mode.Selection,
+                    contentDescription = "Selection Tool"
+                )
 
                 Box(
                     Modifier
@@ -240,6 +270,43 @@ fun Toolbar(
                     },
                     onDismiss = { isStrokeSelectionOpen = false }
                 )
+            }
+            if (state.mode == Mode.Selection && state.selectionState.selectedStrokes != null) {
+                Row(
+                    Modifier
+                        .background(androidx.compose.ui.graphics.Color.White)
+                        .height(40.dp)
+                        .fillMaxWidth()
+                ) {
+                    // Copy button
+                    ToolbarButton(
+                        onSelect = {
+                            selectionHandler.copySelection()
+                        },
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy Selection"
+                    )
+
+                    // Paste button (only if in paste mode)
+                    if (state.selectionState.placementMode == PlacementMode.Paste) {
+                        ToolbarButton(
+                            onSelect = {
+                                // Visual indicator only - actual paste on touch
+                            },
+                            imageVector = Icons.Default.ContentPaste,
+                            isSelected = true,
+                            contentDescription = "Paste Selection"
+                        )
+                    }
+
+                    Spacer(Modifier.weight(1f))
+
+                    // Status text
+                    Text(
+                        text = "${state.selectionState.selectedStrokes?.size ?: 0} strokes selected",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp)
+                    )
+                }
             }
         }
     } else {
