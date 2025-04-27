@@ -23,7 +23,6 @@ import com.wyldsoft.notes.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-
 /**
  * Responsible for managing the page content and rendering.
  * Handles stroke storage, bitmap rendering, and persistence.
@@ -43,7 +42,14 @@ class PageView(
     private val saveTopic = MutableSharedFlow<Unit>()
     var height by mutableIntStateOf(viewHeight)
 
-    // New flow to notify when strokes change (for database saving)
+    // Two separate flows for different operations
+    private val _strokesAdded = MutableStateFlow<List<Stroke>>(emptyList())
+    val strokesAdded = _strokesAdded.asStateFlow()
+
+    private val _strokesRemoved = MutableStateFlow<List<String>>(emptyList())
+    val strokesRemoved = _strokesRemoved.asStateFlow()
+
+    // Combined flow for backward compatibility
     private val _strokesChanged = MutableStateFlow<List<Stroke>>(emptyList())
     val strokesChanged = _strokesChanged.asStateFlow()
 
@@ -123,23 +129,33 @@ class PageView(
         indexStrokes()
         persistBitmapDebounced()
 
-        // Notify that strokes have changed
+        // Notify that strokes have been added
         coroutineScope.launch {
+            _strokesAdded.emit(strokesToAdd)
+            // For backward compatibility
             _strokesChanged.emit(strokesToAdd)
         }
     }
 
     fun removeStrokes(strokeIds: List<String>) {
+        // Capture the strokes before removing them (for debugging if needed)
         val removedStrokes = strokes.filter { s -> strokeIds.contains(s.id) }
+
+        // Remove the strokes
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
+
         indexStrokes()
         computeHeight()
         persistBitmapDebounced()
 
-        // Notify that strokes have been removed
+        // Very important: Notify that strokes have been removed using their IDs
         coroutineScope.launch {
-            _strokesChanged.emit(emptyList()) // Empty list signals deletion
+            _strokesRemoved.emit(strokeIds)
+            // For backward compatibility, emit an empty list to signal deletion
+            _strokesChanged.emit(emptyList())
         }
+
+        println("DEBUG: Removed ${strokeIds.size} strokes, remaining: ${strokes.size}")
     }
 
     private fun computeHeight() {

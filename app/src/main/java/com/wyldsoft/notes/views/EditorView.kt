@@ -89,12 +89,28 @@ fun EditorView(noteId: String? = null) {
 
         val editorState = remember { EditorState(pageId = pageId, pageView = page) }
 
-        // Set up save functionality for strokes
+        // Set up save functionality for strokes (ADDITIONS)
         LaunchedEffect(Unit) {
             scope.launch {
-                page.strokesChanged.collect { strokes ->
-                    // Save strokes to database
-                    noteRepository.saveStrokes(pageId, strokes)
+                page.strokesAdded.collect { strokes ->
+                    if (strokes.isNotEmpty()) {
+                        // Save new strokes to database
+                        println("DEBUG: Saving ${strokes.size} strokes to database")
+                        noteRepository.saveStrokes(pageId, strokes)
+                    }
+                }
+            }
+        }
+
+        // Set up save functionality for strokes (DELETIONS)
+        LaunchedEffect(Unit) {
+            scope.launch {
+                page.strokesRemoved.collect { strokeIds ->
+                    if (strokeIds.isNotEmpty()) {
+                        // Delete strokes from database
+                        println("DEBUG: Deleting ${strokeIds.size} strokes from database")
+                        noteRepository.deleteStrokes(pageId, strokeIds)
+                    }
                 }
             }
         }
