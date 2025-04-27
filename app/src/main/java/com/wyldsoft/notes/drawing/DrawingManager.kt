@@ -46,11 +46,14 @@ class DrawingManager(private val page: PageView) {
         return boundingBox
     }
 
-    private fun convertToStrokePoints(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>): List<StrokePoint> {
+    private fun convertAndTransformToStrokePoints(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>): List<StrokePoint> {
         return touchPoints.map { point ->
+            // Transform point coordinates from view to page coordinate system
+            val (pageX, pageY) = page.viewportTransformer.viewToPageCoordinates(point.x, point.y)
+
             StrokePoint(
-                x = point.x,
-                y = point.y,
+                x = pageX,
+                y = pageY,
                 pressure = point.pressure,
                 size = point.size,
                 tiltX = point.tiltX,
@@ -76,7 +79,7 @@ class DrawingManager(private val page: PageView) {
 
             // Create bounding box and convert points
             val boundingBox = createBoundingBox(touchPoints, strokeSize)
-            val points = convertToStrokePoints(touchPoints)
+            val points = convertAndTransformToStrokePoints(touchPoints)
 
             // Create stroke with all points
             val stroke = Stroke(

@@ -151,65 +151,38 @@ class PageView(
         ignoredStrokeIds: List<String> = listOf(),
         canvas: Canvas? = null
     ) {
-        println("DEBUG: drawArea called with area=$area")
         val activeCanvas = canvas ?: windowedCanvas
 
-        // Transform the area to account for scrolling
-        val pageArea = if (_viewportTransformer != null) {
-            // This is the area in page coordinates
-            Rect(
-                area.left,
-                area.top,
-                area.right,
-                area.bottom
-            )
-        } else {
-            // If viewportTransformer not initialized, use the area as is
-            area
-        }
-
+        // Save canvas state
         activeCanvas.save()
         activeCanvas.clipRect(area)
         activeCanvas.drawColor(Color.WHITE)
-        println("DEBUG: Drawing ${strokes.size} strokes")
 
-        try {
-            strokes.forEach { stroke ->
-                if (ignoredStrokeIds.contains(stroke.id)) {
-                    println("DEBUG: Skipping ignored stroke ${stroke.id}")
-                    return@forEach
-                }
-
-                // Get the stroke bounds
-                val bounds = strokeBounds(stroke)
-
-                // If viewport transformer is initialized, check if stroke is visible
-                if (_viewportTransformer != null) {
-                    val strokeRectF = RectF(
-                        bounds.left.toFloat(),
-                        bounds.top.toFloat(),
-                        bounds.right.toFloat(),
-                        bounds.bottom.toFloat()
-                    )
-
-                    if (!_viewportTransformer!!.isRectVisible(strokeRectF)) {
-                        // Skip stroke if it's not visible in current viewport
-                        return@forEach
-                    }
-                }
-
-                println("DEBUG: Drawing stroke with color=${stroke.color}, size=${stroke.size}")
-                drawStroke(
-                    activeCanvas, stroke, IntOffset(0, 0)
-                )
+        strokes.forEach { stroke ->
+            if (ignoredStrokeIds.contains(stroke.id)) {
+                return@forEach
             }
-        } catch (e: Exception) {
-            println("DEBUG ERROR: Error drawing strokes: ${e.message}")
-            e.printStackTrace()
+
+            // Check if stroke is visible in current viewport
+            val strokeRectF = RectF(
+                stroke.left,
+                stroke.top,
+                stroke.right,
+                stroke.bottom
+            )
+
+            if (!viewportTransformer.isRectVisible(strokeRectF)) {
+                // Skip stroke if it's not visible in current viewport
+                return@forEach
+            }
+
+            println("scroll drawArea drawStroke")
+            // Draw the stroke with proper transformation
+            drawStroke(activeCanvas, stroke)
         }
 
+        // Restore canvas state
         activeCanvas.restore()
-        println("DEBUG: drawArea completed")
     }
 
     fun updateDimensions(newWidth: Int, newHeight: Int) {
@@ -231,25 +204,13 @@ class PageView(
         }
     }
 
-    private fun strokeBounds(stroke: Stroke): Rect {
-        return Rect(
-            stroke.left.toInt(),
-            stroke.top.toInt(),
-            stroke.right.toInt(),
-            stroke.bottom.toInt()
-        )
+    fun isStrokeVisible(stroke: Stroke): Boolean {
+        return viewportTransformer.isRectVisible(RectF(stroke.left, stroke.top, stroke.right, stroke.bottom))
     }
 
-    fun drawStroke(canvas: Canvas, stroke: Stroke, offset: IntOffset) {
+    fun drawStroke(canvas: Canvas, stroke: Stroke) {
         // Check if stroke is visible first
-        val strokeBounds = RectF(
-            stroke.left,
-            stroke.top,
-            stroke.right,
-            stroke.bottom
-        )
-
-        if (!viewportTransformer.isRectVisible(strokeBounds)) {
+        if (!isStrokeVisible(stroke)) {
             return // Skip drawing if stroke is not visible
         }
 
@@ -266,8 +227,8 @@ class PageView(
             // Transform the points to view coordinates
             val transformedPoints = stroke.points.map { point ->
                 val (viewX, viewY) = viewportTransformer.pageToViewCoordinates(
-                    point.x + offset.x,
-                    point.y + offset.y
+                    point.x,
+                    point.y
                 )
                 androidx.compose.ui.geometry.Offset(viewX, viewY)
             }

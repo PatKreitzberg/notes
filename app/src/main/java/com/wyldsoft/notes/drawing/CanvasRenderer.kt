@@ -22,9 +22,6 @@ class CanvasRenderer(
         // Clear the canvas
         canvas.drawColor(android.graphics.Color.WHITE)
 
-        // Get the current viewport in page coordinates
-        val viewport = page.viewportTransformer.getCurrentViewportInPageCoordinates()
-
         // Draw only visible strokes
         for (stroke in page.strokes) {
             val strokeBounds = RectF(
@@ -38,8 +35,8 @@ class CanvasRenderer(
             if (!page.viewportTransformer.isRectVisible(strokeBounds)) {
                 continue
             }
-
-            page.drawStroke(canvas, stroke, IntOffset(0, 0))
+            println("scroll drawCanvasToView drawStroke")
+            page.drawStroke(canvas, stroke)
         }
 
         // Finish rendering
