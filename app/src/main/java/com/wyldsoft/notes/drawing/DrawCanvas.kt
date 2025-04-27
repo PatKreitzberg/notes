@@ -19,7 +19,12 @@ import com.wyldsoft.notes.gesture.GestureType
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
-
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /*
  * The main canvas component that coordinates all drawing operations.
@@ -57,8 +62,15 @@ class DrawCanvas(
             override fun surfaceCreated(holder: SurfaceHolder) {
                 println("Surface created $holder")
                 touchEventHandler.updateActiveSurface()
+
+                // Initialize the canvas renderer to draw initial content
+                canvasRenderer.initialize()
+
+                // Force a full update
                 coroutineScope.launch {
                     DrawingManager.forceUpdate.emit(null)
+                    // Also refresh the UI to ensure changes are visible
+                    DrawingManager.refreshUi.emit(Unit)
                 }
             }
 
@@ -69,6 +81,12 @@ class DrawCanvas(
                 drawCanvasToView()
                 touchEventHandler.updatePenAndStroke()
                 refreshUi()
+
+                // Extra refresh to ensure content is visible after surface change
+                coroutineScope.launch {
+                    delay(100)
+                    drawCanvasToView()
+                }
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {

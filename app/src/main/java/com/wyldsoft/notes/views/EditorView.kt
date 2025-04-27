@@ -20,6 +20,7 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.components.ScrollIndicator
 import com.wyldsoft.notes.components.TopBoundaryIndicator
 import com.wyldsoft.notes.templates.TemplateRenderer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -61,9 +62,25 @@ fun EditorView(noteId: String? = null) {
         LaunchedEffect(pageId) {
             if (noteId != null) {
                 try {
+                    println("DEBUG: Loading strokes for note $noteId")
                     val strokes = noteRepository.getStrokesForNote(noteId)
                     if (strokes.isNotEmpty()) {
+                        println("DEBUG: Loaded ${strokes.size} strokes")
                         page.addStrokes(strokes)
+
+                        // Force redraw of the entire viewport
+                        val viewport = page.viewportTransformer.getCurrentViewportInPageCoordinates()
+                        val rect = android.graphics.Rect(
+                            0,
+                            viewport.top.toInt(),
+                            viewport.right.toInt(),
+                            viewport.bottom.toInt()
+                        )
+                        page.drawArea(rect)
+
+                        // Trigger UI update through DrawingManager
+                        DrawingManager.forceUpdate.emit(rect)
+                        DrawingManager.refreshUi.emit(Unit)
                     }
                 } catch (e: Exception) {
                     println("Error loading strokes: ${e.message}")
@@ -77,6 +94,14 @@ fun EditorView(noteId: String? = null) {
                     height = height
                 )
             }
+        }
+
+        // Additional LaunchedEffect to ensure rendering after initialization
+        LaunchedEffect(Unit) {
+            // Short delay to ensure the surface is ready
+            delay(300)
+            page.drawCanvasToViewport()
+            DrawingManager.refreshUi.emit(Unit)
         }
 
         // Dynamically update the page width when the Box constraints change

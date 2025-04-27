@@ -218,6 +218,27 @@ class PageView(
         activeCanvas.restore()
     }
 
+    /**
+     * Draws all visible strokes to the canvas
+     * This method is called when the page is first loaded
+     */
+    fun drawCanvasToViewport() {
+        // Get the current viewport
+        val viewport = viewportTransformer.getCurrentViewportInPageCoordinates()
+
+        // Create a rect that covers the entire viewport
+        val viewportRect = Rect(
+            0,
+            viewport.top.toInt(),
+            viewport.right.toInt(),
+            viewport.bottom.toInt()
+        )
+
+        // Draw all strokes in the viewport
+        drawArea(viewportRect)
+
+        println("DEBUG: Auto-draw complete for viewport: $viewportRect")
+    }
 
     fun updateDimensions(newWidth: Int, newHeight: Int) {
         if (newWidth != viewWidth || newHeight != viewHeight) {

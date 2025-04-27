@@ -22,10 +22,24 @@ class CanvasRenderer(
         settingsRepository,
         templateRenderer
     )
+
+    /**
+     * Initializes the renderer and draws initial content
+     */
+    fun initialize() {
+        // Draw initial content when the renderer is created
+        drawCanvasToView()
+    }
+
     /**
      * Renders the current page state to the surface view
      */
     fun drawCanvasToView() {
+        if (!surfaceView.holder.surface.isValid) {
+            println("DEBUG: Surface not valid, skipping draw")
+            return
+        }
+
         val canvas = surfaceView.holder.lockCanvas() ?: return
 
         // Clear the canvas
@@ -44,7 +58,7 @@ class CanvasRenderer(
             if (!page.viewportTransformer.isRectVisible(strokeBounds)) {
                 continue
             }
-            println("scroll drawCanvasToView drawStroke")
+
             page.drawStroke(canvas, stroke)
         }
 
@@ -53,5 +67,7 @@ class CanvasRenderer(
 
         // Finish rendering
         surfaceView.holder.unlockCanvasAndPost(canvas)
+
+        println("DEBUG: Canvas drawn to view")
     }
 }
