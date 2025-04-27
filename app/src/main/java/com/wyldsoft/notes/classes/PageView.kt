@@ -163,7 +163,7 @@ class PageView(
                 return@forEach
             }
 
-            if (!viewportTransformer.isRectVisible(RectF(stroke.left, stroke.top, stroke.right, stroke.bottom))) {
+            if (isStrokeVisible(stroke)) {
                 // Skip stroke if it's not visible in current viewport
                 println("scroll skip Stroke in drawArea")
                 return@forEach
@@ -176,6 +176,7 @@ class PageView(
         // Restore canvas state
         activeCanvas.restore()
     }
+
 
     fun updateDimensions(newWidth: Int, newHeight: Int) {
         if (newWidth != viewWidth || newHeight != viewHeight) {
@@ -196,8 +197,12 @@ class PageView(
         }
     }
 
+    fun strokeBounds(stroke: Stroke): RectF {
+        return RectF(stroke.left, stroke.top, stroke.right, stroke.bottom)
+    }
+
     fun isStrokeVisible(stroke: Stroke): Boolean {
-        return viewportTransformer.isRectVisible(RectF(stroke.left, stroke.top, stroke.right, stroke.bottom))
+        return viewportTransformer.isRectVisible(strokeBounds(stroke))
     }
 
     fun drawStroke(canvas: Canvas, stroke: Stroke) {

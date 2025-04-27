@@ -117,7 +117,6 @@ class DrawCanvas(
         }
     }
 
-
     private fun handleScrollGesture(event: GestureEvent) {
         when (event.type) {
             GestureType.SWIPE_UP_FAST, GestureType.SWIPE_UP_SLOW,

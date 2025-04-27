@@ -28,13 +28,14 @@ class DrawingManager(private val page: PageView) {
 
     private val strokeHistoryBatch = mutableListOf<String>()
 
-    private fun createBoundingBox(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>, strokeSize: Float): RectF {
+    private fun convertAndCreateBoundingBox(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>, strokeSize: Float): RectF {
         val initialPoint = touchPoints.firstOrNull() ?: return RectF()
+        val (pageX, pageY) = page.viewportTransformer.viewToPageCoordinates(initialPoint.x, initialPoint.y)
         val boundingBox = RectF(
-            initialPoint.x,
-            initialPoint.y,
-            initialPoint.x,
-            initialPoint.y
+            pageX,
+            pageY,
+            pageX,
+            pageY
         )
 
         touchPoints.forEach { point ->
@@ -51,6 +52,7 @@ class DrawingManager(private val page: PageView) {
             // Transform point coordinates from view to page coordinate system
             val (pageX, pageY) = page.viewportTransformer.viewToPageCoordinates(point.x, point.y)
 
+            println("scroll point.y=${point.y}  pageY=$pageY")
             StrokePoint(
                 x = pageX,
                 y = pageY,
@@ -78,7 +80,7 @@ class DrawingManager(private val page: PageView) {
             }
 
             // Create bounding box and convert points
-            val boundingBox = createBoundingBox(touchPoints, strokeSize)
+            val boundingBox = convertAndCreateBoundingBox(touchPoints, strokeSize)
             val points = convertAndTransformToStrokePoints(touchPoints)
 
             // Create stroke with all points
