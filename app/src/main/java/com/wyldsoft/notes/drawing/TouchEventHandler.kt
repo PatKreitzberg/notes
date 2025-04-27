@@ -1,5 +1,6 @@
 package com.wyldsoft.notes.classes.drawing
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Rect
 import android.graphics.RectF
@@ -68,15 +69,21 @@ class TouchEventHandler(
     */
     val gestureDetector = GestureDetector(context)
 
-    private lateinit var scrollTracker: DirectScrollTracker
+    private var scrollTracker: DirectScrollTracker
     init {
-        scrollTracker = DirectScrollTracker(viewportTransformer)
+        scrollTracker = DirectScrollTracker(viewportTransformer,
+            onScrollComplete = {
+                println("DEBUG: Scrolling complete, updating active surface")
+                updateActiveSurface()
+            }
+        )
     }
 
     private fun isStylusEvent(event: MotionEvent): Boolean {
         return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     fun setupTouchInterception() {
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
@@ -121,7 +128,6 @@ class TouchEventHandler(
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) {
             println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
-
             val points = plist
 
             // Now use the adjusted touch points for drawing operations
@@ -243,21 +249,26 @@ class TouchEventHandler(
         // Create a list of exclusion zones if pagination is enabled
         val excludeRects = mutableListOf(toolbarExcludeRect)
 
+        println("exclusion paginationManager.isPaginationEnabled=${paginationManager.isPaginationEnabled}")
         // Add pagination exclusion zones if enabled
         if (paginationManager.isPaginationEnabled) {
+
             val viewportTop = viewportTransformer.scrollY
             val viewportHeight = surfaceView.height.toFloat()
 
             // Get all exclusion zones visible in the current viewport
             val exclusionZones = paginationManager.getExclusionZonesInViewport(viewportTop, viewportHeight)
+            println("exclusion exclusionZones=$exclusionZones")
 
             // Transform to view coordinates and add to exclude rects
             exclusionZones.forEach { rect ->
                 val top = rect.top - viewportTop.toInt()
                 val bottom = rect.bottom - viewportTop.toInt()
 
+                println("exclusion check")
                 // Only add if visible in the viewport
                 if (bottom >= 0 && top <= viewportHeight) {
+                    println("exclusion is in viewable area")
                     excludeRects.add(
                         Rect(
                             0,

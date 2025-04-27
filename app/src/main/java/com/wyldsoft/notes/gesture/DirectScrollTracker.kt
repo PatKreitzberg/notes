@@ -8,7 +8,8 @@ import com.wyldsoft.notes.transform.ViewportTransformer
  * Tracks finger movement directly for scrolling content.
  */
 class DirectScrollTracker(
-    private val viewportTransformer: ViewportTransformer
+    private val viewportTransformer: ViewportTransformer,
+    private val onScrollComplete: () -> Unit = {} // Add this callback parameter
 ) {
     private var lastTouchY = 0f
     private var isScrolling = false
@@ -32,6 +33,10 @@ class DirectScrollTracker(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (isScrolling) {
+                    // Call the callback when scrolling ends
+                    onScrollComplete()
+                }
                 isScrolling = false
                 return true
             }
