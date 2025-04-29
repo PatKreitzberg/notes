@@ -4,39 +4,15 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.FloatingActionButton
-import androidx.compose.material.Icon
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,28 +22,273 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.wyldsoft.notes.NotesApp
+import com.wyldsoft.notes.components.AddItemDialog
 import com.wyldsoft.notes.components.HomeSettingsDialog
+import com.wyldsoft.notes.database.entity.FolderEntity
 import com.wyldsoft.notes.database.entity.NoteEntity
+import com.wyldsoft.notes.database.entity.NotebookEntity
+import com.wyldsoft.notes.models.FolderModel
 import com.wyldsoft.notes.utils.noRippleClickable
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 @ExperimentalFoundationApi
 @Composable
-fun HomeView(navController: NavController) {
+
+fun HomeView(
+    navController: NavController,
+    initialFolderId: String? = null,
+    initialNotebookId: String? = null
+) {
     val context = LocalContext.current
     val app = NotesApp.getApp(context)
-    val noteRepository = app.noteRepository
     val scope = rememberCoroutineScope()
 
-    // Collect notes from repository
-    val notes by noteRepository.getAllNotes().collectAsState(initial = emptyList())
+    // Get repositories
+    val folderRepository = app.folderRepository
+    val notebookRepository = app.notebookRepository
+    val noteRepository = app.noteRepository
+    val pageNotebookRepository = app.pageNotebookRepository
 
+    // State
+    var currentPath by remember { mutableStateOf("/") }
+    var selectedFolderId by remember { mutableStateOf(initialFolderId) }
+    var selectedNotebookId by remember { mutableStateOf(initialNotebookId) }
+
+    // Dialog states
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showAddFolderDialog by remember { mutableStateOf(false) }
+    var showAddNotebookDialog by remember { mutableStateOf(false) }
+    var showAddPageDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<Any?>(null) }
+
+    // Collect data
+    val rootFolders by folderRepository.getRootFolders().collectAsState(initial = emptyList())
+    val subFolders by selectedFolderId?.let {
+        folderRepository.getSubFolders(it)
+    }?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+
+    val notebooksInFolder by selectedFolderId?.let {
+        notebookRepository.getNotebooksInFolder(it)
+    }?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+
+    val notebooksWithoutFolder by notebookRepository.getNotebooksWithoutFolder()
+        .collectAsState(initial = emptyList())
+
+    val pagesInNotebook by selectedNotebookId?.let {
+        pageNotebookRepository.getPagesInNotebook(it)
+    }?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+
+    // Expanded folder states
+    val expandedFolderIds = remember { mutableStateListOf<String>() }
+
+    // Show settings dialog if requested
     if (showSettingsDialog) {
         HomeSettingsDialog(
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    // Add folder dialog
+    if (showAddFolderDialog) {
+        AddItemDialog(
+            title = "Create New Folder",
+            nameLabel = "Folder Name",
+            onConfirm = { name ->
+                scope.launch {
+                    folderRepository.createFolder(name, selectedFolderId)
+                }
+                showAddFolderDialog = false
+            },
+            onDismiss = { showAddFolderDialog = false }
+        )
+    }
+
+    // Add notebook dialog
+    if (showAddNotebookDialog) {
+        AddItemDialog(
+            title = "Create New Notebook",
+            nameLabel = "Notebook Title",
+            onConfirm = { title ->
+                scope.launch {
+                    notebookRepository.createNotebook(title, selectedFolderId)
+                }
+                showAddNotebookDialog = false
+            },
+            onDismiss = { showAddNotebookDialog = false }
+        )
+    }
+
+    // Add page dialog
+    if (showAddPageDialog && selectedNotebookId != null) {
+        AddItemDialog(
+            title = "Create New Page",
+            nameLabel = "Page Title",
+            onConfirm = { title ->
+                scope.launch {
+                    // Create a new page first
+                    val pageId = java.util.UUID.randomUUID().toString()
+                    val now = java.util.Date()
+                    val note = NoteEntity(
+                        id = pageId,
+                        title = title,
+                        createdAt = now,
+                        updatedAt = now,
+                        width = 1000, // Default values
+                        height = 1500
+                    )
+                    noteRepository.createNote(pageId, title, 1000, 1500)
+
+                    // Add the page to the selected notebook
+                    pageNotebookRepository.addPageToNotebook(pageId, selectedNotebookId!!)
+
+                    // Navigate to the editor for the new page
+                    navController.navigate("editor/$pageId")
+                }
+                showAddPageDialog = false
+            },
+            onDismiss = { showAddPageDialog = false }
+        )
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteConfirmDialog && itemToDelete != null) {
+        val itemType = when (itemToDelete) {
+            is FolderEntity -> "folder"
+            is NotebookEntity -> "notebook"
+            is NoteEntity -> "page"
+            else -> "item"
+        }
+
+        // For pages, check if they're in multiple notebooks
+        // For pages, check if they're in multiple notebooks
+        if (itemToDelete is NoteEntity && selectedNotebookId != null) {
+            var notebookCount by remember { mutableStateOf(0) }
+            var showMultipleNotebooksDialog by remember { mutableStateOf(false) }
+
+            // Get notebook count for this page
+            LaunchedEffect(itemToDelete) {
+                // Safe cast with "as?" and null check
+                val noteEntity = itemToDelete as? NoteEntity
+                if (noteEntity != null) {
+                    notebookCount = pageNotebookRepository.getNotebookCountForPage(noteEntity.id)
+                    if (notebookCount > 1) {
+                        showMultipleNotebooksDialog = true
+                        showDeleteConfirmDialog = false
+                    }
+                }
+            }
+
+            // Show special dialog for pages in multiple notebooks
+            if (showMultipleNotebooksDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showMultipleNotebooksDialog = false
+                        itemToDelete = null
+                    },
+                    title = { Text("Page in Multiple Notebooks") },
+                    text = { Text("This page is in $notebookCount notebooks. What would you like to do?") },
+                    buttons = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        // Safe cast with "as?" and null check
+                                        val noteEntity = itemToDelete as? NoteEntity
+                                        if (noteEntity != null) {
+                                            // Remove only from current notebook
+                                            pageNotebookRepository.removePageFromNotebook(
+                                                noteEntity.id,
+                                                selectedNotebookId!!
+                                            )
+                                        }
+                                    }
+                                    showMultipleNotebooksDialog = false
+                                    itemToDelete = null
+                                }
+                            ) {
+                                Text("Remove from this notebook only")
+                            }
+
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        // Safe cast with "as?" and null check
+                                        val noteEntity = itemToDelete as? NoteEntity
+                                        if (noteEntity != null) {
+                                            // Delete page completely
+                                            noteRepository.deleteNote(noteEntity.id)
+                                        }
+                                    }
+                                    showMultipleNotebooksDialog = false
+                                    itemToDelete = null
+                                },
+                                colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.error)
+                            ) {
+                                Text("Delete from all notebooks")
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteConfirmDialog = false
+                itemToDelete = null
+            },
+            title = { Text("Confirm Delete") },
+            text = { Text("Are you sure you want to delete this $itemType?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            when (val item = itemToDelete) {
+                                is FolderEntity -> folderRepository.deleteFolder(item.id)
+                                is NotebookEntity -> notebookRepository.deleteNotebook(item.id)
+                                is NoteEntity -> {
+                                    // Check if page is in multiple notebooks
+                                    val notebooks = pageNotebookRepository.getNotebooksContainingPage(item.id).first()
+                                    if (notebooks.size > 1) {
+                                        // Show another dialog asking if they want to delete from all or just this one
+                                        // For simplicity, we'll just remove from current notebook for now
+                                        if (selectedNotebookId != null) {
+                                            pageNotebookRepository.removePageFromNotebook(item.id, selectedNotebookId!!)
+                                        }
+                                    } else {
+                                        // Delete the page completely
+                                        noteRepository.deleteNote(item.id)
+                                    }
+                                }
+                            }
+                        }
+                        showDeleteConfirmDialog = false
+                        itemToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        itemToDelete = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -88,11 +309,32 @@ fun HomeView(navController: NavController) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("editor") },
-                backgroundColor = MaterialTheme.colors.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Create new note")
+            Column {
+                // Show FAB for adding page only when a notebook is selected
+                if (selectedNotebookId != null) {
+                    FloatingActionButton(
+                        onClick = { showAddPageDialog = true },
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.NoteAdd, contentDescription = "Add page")
+                    }
+                }
+
+                // Always show FAB for adding notebook
+                FloatingActionButton(
+                    onClick = { showAddNotebookDialog = true },
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Book, contentDescription = "Add notebook")
+                }
+
+                // Always show FAB for adding folder
+                FloatingActionButton(
+                    onClick = { showAddFolderDialog = true },
+                    backgroundColor = MaterialTheme.colors.primary
+                ) {
+                    Icon(Icons.Default.CreateNewFolder, contentDescription = "Add folder")
+                }
             }
         }
     ) { paddingValues ->
@@ -101,19 +343,291 @@ fun HomeView(navController: NavController) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (notes.isEmpty()) {
-                EmptyNotesView()
-            } else {
-                NotesGrid(
-                    notes = notes,
-                    onNoteClick = { note ->
-                        navController.navigate("editor/${note.id}")
-                    },
-                    onDeleteClick = { note ->
-                        scope.launch {
-                            noteRepository.deleteNote(note.id)
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Breadcrumb navigation
+                BreadcrumbNavigation(
+                    path = currentPath,
+                    onNavigate = { path ->
+                        currentPath = path
+                        // TODO: Navigate to the folder corresponding to this path
+                    }
+                )
+
+                // Main content
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                ) {
+                    // Show root folders
+                    if (selectedFolderId == null) {
+                        item {
+                            Text(
+                                text = "Folders",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+
+                        items(rootFolders) { folder ->
+                            FolderItem(
+                                folder = folder,
+                                isExpanded = folder.id in expandedFolderIds,
+                                onToggleExpand = {
+                                    if (folder.id in expandedFolderIds) {
+                                        expandedFolderIds.remove(folder.id)
+                                    } else {
+                                        expandedFolderIds.add(folder.id)
+                                    }
+                                },
+                                onClick = {
+                                    selectedFolderId = folder.id
+                                    currentPath = folder.path
+                                },
+                                onDelete = {
+                                    itemToDelete = folder
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
+
+                        // Show notebooks without folder
+                        item {
+                            Text(
+                                text = "Notebooks",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+
+                        items(notebooksWithoutFolder) { notebook ->
+                            NotebookItem(
+                                notebook = notebook,
+                                onClick = {
+                                    selectedNotebookId = notebook.id
+                                    selectedFolderId = null
+                                },
+                                onDelete = {
+                                    itemToDelete = notebook
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
                         }
                     }
+                    // Show sub-folders and notebooks within the selected folder
+                    else {
+                        item {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        // Go back to parent folder
+                                        scope.launch {
+                                            val currentFolder = folderRepository.getFolderById(selectedFolderId!!)
+                                            if (currentFolder != null && currentFolder.parentId != null) {
+                                                selectedFolderId = currentFolder.parentId
+                                                val parentFolder = folderRepository.getFolderById(currentFolder.parentId)
+                                                if (parentFolder != null) {
+                                                    currentPath = parentFolder.path
+                                                }
+                                            } else {
+                                                selectedFolderId = null
+                                                currentPath = "/"
+                                            }
+                                        }
+                                    }
+                                    .padding(8.dp)
+                            ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Back")
+                            }
+                        }
+
+                        item {
+                            Text(
+                                text = "Sub-Folders",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+
+                        items(subFolders) { folder ->
+                            FolderItem(
+                                folder = folder,
+                                isExpanded = folder.id in expandedFolderIds,
+                                onToggleExpand = {
+                                    if (folder.id in expandedFolderIds) {
+                                        expandedFolderIds.remove(folder.id)
+                                    } else {
+                                        expandedFolderIds.add(folder.id)
+                                    }
+                                },
+                                onClick = {
+                                    selectedFolderId = folder.id
+                                    currentPath = folder.path
+                                },
+                                onDelete = {
+                                    itemToDelete = folder
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
+
+                        item {
+                            Text(
+                                text = "Notebooks",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+
+                        items(notebooksInFolder) { notebook ->
+                            NotebookItem(
+                                notebook = notebook,
+                                onClick = {
+                                    selectedNotebookId = notebook.id
+                                },
+                                onDelete = {
+                                    itemToDelete = notebook
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
+                    }
+
+                    // Show pages within the selected notebook
+                    if (selectedNotebookId != null) {
+                        item {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedNotebookId = null
+                                    }
+                                    .padding(8.dp)
+                            ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back to notebooks")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Back to notebooks")
+                            }
+                        }
+
+                        item {
+                            Text(
+                                text = "Pages",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+
+                        items(pagesInNotebook) { page ->
+                            PageItem(
+                                page = page,
+                                onClick = {
+                                    navController.navigate("editor/${page.id}")
+                                },
+                                onDelete = {
+                                    itemToDelete = page
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BreadcrumbNavigation(
+    path: String,
+    onNavigate: (String) -> Unit
+) {
+    val parts = path.split("/").filter { it.isNotEmpty() }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Home,
+            contentDescription = "Home",
+            modifier = Modifier
+                .clickable { onNavigate("/") }
+                .padding(4.dp)
+        )
+
+        var currentPath = ""
+        parts.forEachIndexed { index, part ->
+            Text(" / ")
+            currentPath += "/$part"
+            val pathToNavigate = currentPath
+            Text(
+                text = part,
+                modifier = Modifier
+                    .clickable { onNavigate(pathToNavigate) }
+                    .padding(4.dp),
+                color = if (index == parts.size - 1) MaterialTheme.colors.primary else Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun FolderItem(
+    folder: FolderEntity,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .clickable(onClick = onClick),
+        elevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = "Folder",
+                tint = Color(0xFFFFB74D)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = folder.name,
+                    style = MaterialTheme.typography.subtitle1
+                )
+                Text(
+                    text = "Created: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(folder.createdAt)}",
+                    style = MaterialTheme.typography.caption,
+                    color = Color.Gray
+                )
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete folder",
+                    tint = Color.Gray
                 )
             }
         }
@@ -121,101 +635,103 @@ fun HomeView(navController: NavController) {
 }
 
 @Composable
-fun EmptyNotesView() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "No notes yet",
-                style = MaterialTheme.typography.h5
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Create a new note with the + button",
-                style = MaterialTheme.typography.body1,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-@Composable
-fun NotesGrid(
-    notes: List<NoteEntity>,
-    onNoteClick: (NoteEntity) -> Unit,
-    onDeleteClick: (NoteEntity) -> Unit
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(notes) { note ->
-            NoteItem(
-                note = note,
-                onClick = { onNoteClick(note) },
-                onDeleteClick = { onDeleteClick(note) }
-            )
-        }
-    }
-}
-
-@Composable
-fun NoteItem(
-    note: NoteEntity,
+fun NotebookItem(
+    notebook: NotebookEntity,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDelete: () -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-
-    Box(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFFFF8E1))
-            .border(1.dp, Color(0xFFFFE0B2), RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .clickable(onClick = onClick),
+        elevation = 2.dp
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp)
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = note.title,
-                style = MaterialTheme.typography.h6,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Icon(
+                imageVector = Icons.Default.Book,
+                contentDescription = "Notebook",
+                tint = Color(0xFF7986CB)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            Text(
-                text = "Last edited: ${dateFormat.format(note.updatedAt)}",
-                style = MaterialTheme.typography.caption,
-                color = Color.Gray
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Delete button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
+                Text(
+                    text = notebook.title,
+                    style = MaterialTheme.typography.subtitle1
+                )
+                Text(
+                    text = "Last edited: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(notebook.updatedAt)}",
+                    style = MaterialTheme.typography.caption,
+                    color = Color.Gray
+                )
+            }
+
+            IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete note",
-                    tint = Color.Gray,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .noRippleClickable(onDeleteClick)
+                    contentDescription = "Delete notebook",
+                    tint = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PageItem(
+    page: NoteEntity,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .clickable(onClick = onClick),
+        elevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = "Page",
+                tint = Color(0xFF4DB6AC)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = page.title,
+                    style = MaterialTheme.typography.subtitle1
+                )
+                Text(
+                    text = "Last edited: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(page.updatedAt)}",
+                    style = MaterialTheme.typography.caption,
+                    color = Color.Gray
+                )
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete page",
+                    tint = Color.Gray
                 )
             }
         }

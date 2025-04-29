@@ -3,7 +3,7 @@ package com.wyldsoft.notes
 import android.app.Application
 import android.content.Context
 import com.wyldsoft.notes.database.NotesDatabase
-import com.wyldsoft.notes.database.repository.NoteRepository
+import com.wyldsoft.notes.database.repository.*
 import com.wyldsoft.notes.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +21,15 @@ class NotesApp : Application() {
         private set
 
     lateinit var settingsRepository: SettingsRepository
+        private set
+
+    lateinit var folderRepository: FolderRepository
+        private set
+
+    lateinit var notebookRepository: NotebookRepository
+        private set
+
+    lateinit var pageNotebookRepository: PageNotebookRepository
         private set
 
     override fun onCreate() {
@@ -50,6 +59,18 @@ class NotesApp : Application() {
             this,
             applicationScope,
             database.settingsDao()
+        )
+
+        folderRepository = FolderRepository(
+            database.folderDao()
+        )
+
+        notebookRepository = NotebookRepository(
+            database.notebookDao()
+        )
+
+        pageNotebookRepository = PageNotebookRepository(
+            database.pageNotebookDao()
         )
     }
 

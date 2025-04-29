@@ -1,3 +1,4 @@
+// app/src/main/java/com/wyldsoft/notes/views/Router.kt
 package com.wyldsoft.notes.views
 
 import androidx.compose.animation.EnterTransition
@@ -29,18 +30,36 @@ fun Router() {
             HomeView(navController)
         }
 
-        // Editor without a specific note ID (creates a new note)
+        // Editor without a specific note ID (creates a new page)
         composable(route = "editor") {
             EditorView()
         }
 
-        // Editor with a specific note ID (opens existing note)
+        // Editor with a specific page ID (opens existing page)
         composable(
-            route = "editor/{noteId}",
-            arguments = listOf(navArgument("noteId") { type = NavType.StringType })
+            route = "editor/{pageId}",
+            arguments = listOf(navArgument("pageId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val noteId = backStackEntry.arguments?.getString("noteId")
-            EditorView(noteId = noteId)
+            val pageId = backStackEntry.arguments?.getString("pageId")
+            EditorView(noteId = pageId)
+        }
+
+        // Folder view
+        composable(
+            route = "folder/{folderId}",
+            arguments = listOf(navArgument("folderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val folderId = backStackEntry.arguments?.getString("folderId")
+            HomeView(navController, initialFolderId = folderId)
+        }
+
+        // Notebook view
+        composable(
+            route = "notebook/{notebookId}",
+            arguments = listOf(navArgument("notebookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val notebookId = backStackEntry.arguments?.getString("notebookId")
+            HomeView(navController, initialNotebookId = notebookId)
         }
     }
 }
