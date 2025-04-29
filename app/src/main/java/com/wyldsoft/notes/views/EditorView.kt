@@ -43,8 +43,6 @@ fun EditorView(noteId: String? = null) {
     // Initialize template renderer
     val templateRenderer = remember { TemplateRenderer(context) }
 
-
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val height = convertDpToPixel(this.maxHeight, context).toInt()
         val width = convertDpToPixel(this.maxWidth, context).toInt()

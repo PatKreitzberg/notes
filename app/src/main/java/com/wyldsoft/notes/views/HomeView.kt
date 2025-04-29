@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.wyldsoft.notes.NotesApp
+import com.wyldsoft.notes.components.HomeSettingsDialog
 import com.wyldsoft.notes.database.entity.NoteEntity
 import com.wyldsoft.notes.utils.noRippleClickable
 import kotlinx.coroutines.launch
@@ -64,6 +65,11 @@ fun HomeView(navController: NavController) {
     val notes by noteRepository.getAllNotes().collectAsState(initial = emptyList())
 
     var showSettingsDialog by remember { mutableStateOf(false) }
+    if (showSettingsDialog) {
+        HomeSettingsDialog(
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
 
     Scaffold(
         topBar = {

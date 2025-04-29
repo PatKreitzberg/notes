@@ -227,28 +227,20 @@ fun Toolbar(
                 if (showSettings) {
                     SettingsDialog(
                         settingsRepository = settingsRepository,
-                        currentNoteName = noteTitle, // Pass the current note title
+                        currentNoteName = noteTitle,
                         onUpdateViewportTransformer = { isPaginationEnabled ->
                             viewportTransformer.updatePaginationState(isPaginationEnabled)
                         },
                         onUpdatePageDimensions = { paperSize ->
-                            // Handle paper size changes
                             viewportTransformer.updatePaperSizeState(paperSize)
                         },
                         onUpdateTemplate = { template ->
-                            // Template changes require a UI refresh
-                            scope.launch {  // Using scope instead of coroutineScope
+                            scope.launch {
                                 DrawingManager.refreshUi.emit(Unit)
                             }
                         },
-                        onUpdateNoteName = onUpdateNoteName, // Pass the update callback
-                        onShowBackupDialog = { showBackupDialog = true },
+                        onUpdateNoteName = onUpdateNoteName,
                         onDismiss = { showSettings = false }
-                    )
-                }
-                if (showBackupDialog) {
-                    BackupSettingsDialog(
-                        onDismiss = { showBackupDialog = false }
                     )
                 }
             }

@@ -50,7 +50,6 @@ fun SettingsDialog(
     onUpdatePageDimensions: (PaperSize) -> Unit,
     onUpdateTemplate: (TemplateType) -> Unit,
     onUpdateNoteName: (String) -> Unit,
-    onShowBackupDialog: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -211,29 +210,6 @@ fun SettingsDialog(
                     }) {
                         Text("Ruled Lines")
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Backup settings button
-            Button(
-                onClick = {
-                    onDismiss()  // Close the settings dialog
-                    onShowBackupDialog()  // Open the backup dialog
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Backup,
-                        contentDescription = "Backup Settings"
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Backup and Restore")
                 }
             }
 

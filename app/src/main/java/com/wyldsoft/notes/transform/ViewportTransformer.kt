@@ -44,7 +44,6 @@ class ViewportTransformer(
     // The minimum scroll value
     private val minScrollY = 0f
 
-
     // UI indicators
     var isScrollIndicatorVisible by mutableStateOf(false)
     private var scrollIndicatorJob: Job? = null
