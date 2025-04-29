@@ -31,7 +31,7 @@ enum class SyncFrequency(val intervalMinutes: Long) {
 class SyncManager(
     private val context: Context,
     private val noteRepository: NoteRepository,
-    private val driveServiceWrapper: DriveServiceWrapper,
+    val driveServiceWrapper: DriveServiceWrapper,
     private val coroutineScope: CoroutineScope
 ) {
     // Sync state
