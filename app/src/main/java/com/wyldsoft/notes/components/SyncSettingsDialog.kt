@@ -1,6 +1,9 @@
 // app/src/main/java/com/wyldsoft/notes/components/SyncSettingsDialog.kt
 package com.wyldsoft.notes.components
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -27,6 +31,7 @@ fun SyncSettingsDialog(
     syncManager: SyncManager,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     // Collect state
@@ -35,10 +40,28 @@ fun SyncSettingsDialog(
     val errorMessage by syncManager.errorMessage.collectAsState()
     val lastSyncTime by syncManager.lastSyncTime.collectAsState()
 
+    // Get sign-in status
+    var isSignedIn by remember { mutableStateOf(syncManager.driveServiceWrapper.isSignedIn()) }
+
     // Local state for settings
     var syncOnlyOnWifi by remember { mutableStateOf(syncManager.syncOnlyOnWifi) }
     var autoSyncEnabled by remember { mutableStateOf(syncManager.autoSyncEnabled) }
     var syncFrequency by remember { mutableStateOf(syncManager.syncFrequency) }
+
+    // Create launcher for Google Sign-in
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        coroutineScope.launch {
+            val success = syncManager.driveServiceWrapper.handleSignInResult(result.data)
+            isSignedIn = syncManager.driveServiceWrapper.isSignedIn()
+        }
+    }
+
+    // Update sign-in state when dialog is shown
+    LaunchedEffect(Unit) {
+        isSignedIn = syncManager.driveServiceWrapper.isSignedIn()
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -53,6 +76,67 @@ fun SyncSettingsDialog(
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+
+            // Google Sign-in Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                elevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Google Drive Account",
+                        style = MaterialTheme.typography.subtitle1
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (isSignedIn) "Signed In" else "Not Signed In",
+                        color = if (isSignedIn) Color.Green else Color.Red,
+                        style = MaterialTheme.typography.body1
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Sign In/Out Button
+                    if (isSignedIn) {
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    syncManager.driveServiceWrapper.signOut()
+                                    isSignedIn = syncManager.driveServiceWrapper.isSignedIn()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = "Sign Out"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out of Google Drive")
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                syncManager.driveServiceWrapper.signIn(signInLauncher)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Login,
+                                contentDescription = "Sign In"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign In to Google Drive")
+                        }
+                    }
+                }
+            }
 
             // Sync Status
             Card(
@@ -234,7 +318,7 @@ fun SyncSettingsDialog(
                         syncManager.performSync()
                     }
                 },
-                enabled = syncState == SyncState.IDLE || syncState == SyncState.SUCCESS || syncState == SyncState.ERROR,
+                enabled = isSignedIn && (syncState == SyncState.IDLE || syncState == SyncState.SUCCESS || syncState == SyncState.ERROR),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(

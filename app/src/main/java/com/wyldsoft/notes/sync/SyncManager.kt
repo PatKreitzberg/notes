@@ -76,6 +76,7 @@ class SyncManager(
     suspend fun performSync(): Boolean {
         if (!networkMonitor.canSync(syncOnlyOnWifi)) {
             _errorMessage.value = "Cannot sync: Wi-Fi not available and sync is set to Wi-Fi only"
+            _syncState.value = SyncState.ERROR
             return false
         }
 
@@ -84,7 +85,7 @@ class SyncManager(
 
             // Check Google Drive connection
             if (!driveServiceWrapper.isSignedIn()) {
-                _errorMessage.value = "Not signed in to Google Drive"
+                _errorMessage.value = "Not signed in to Google Drive. Please sign in first."
                 _syncState.value = SyncState.ERROR
                 return false
             }
@@ -108,7 +109,13 @@ class SyncManager(
             _syncProgress.value = 1.0f
             return true
 
+        } catch (e: IllegalStateException) {
+            // Specific handling for authentication errors
+            _errorMessage.value = e.message ?: "Authentication error"
+            _syncState.value = SyncState.ERROR
+            return false
         } catch (e: Exception) {
+            // General error handling
             _errorMessage.value = "Sync failed: ${e.message}"
             _syncState.value = SyncState.ERROR
             return false

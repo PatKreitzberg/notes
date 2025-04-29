@@ -115,12 +115,14 @@ class DriveServiceWrapper(private val context: Context) {
             val account = task.getResult(IOException::class.java)
             if (account != null) {
                 initializeDriveService(account)
-                ensureNotesFolder()
+                ensureNotesFolder() // Make sure we have our root folder
                 true
             } else {
                 false
             }
         } catch (e: Exception) {
+            println("GoogleSignIn error: ${e.message}")
+            e.printStackTrace()
             false
         }
     }
@@ -149,7 +151,7 @@ class DriveServiceWrapper(private val context: Context) {
                 return@withContext driveRootFolderId!!
             }
 
-            val service = driveService ?: throw IllegalStateException("Drive service not initialized")
+            val service = driveService ?: throw IllegalStateException("Drive service not initialized. Please sign in to Google Drive first.")
 
             // Check if folder already exists
             val query = "name = '$NOTES_FOLDER_NAME' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
