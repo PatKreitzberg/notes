@@ -1,15 +1,20 @@
+// app/src/main/java/com/wyldsoft/notes/NotesApp.kt
 package com.wyldsoft.notes
 
 import android.app.Application
 import android.content.Context
+import androidx.work.Configuration
+import androidx.work.WorkManager
 import com.wyldsoft.notes.database.NotesDatabase
 import com.wyldsoft.notes.database.repository.*
 import com.wyldsoft.notes.settings.SettingsRepository
+import com.wyldsoft.notes.sync.DriveServiceWrapper
+import com.wyldsoft.notes.sync.SyncManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
-class NotesApp : Application() {
+class NotesApp : Application(), Configuration.Provider {
     // Application-level coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob())
 
@@ -32,10 +37,24 @@ class NotesApp : Application() {
     lateinit var pageNotebookRepository: PageNotebookRepository
         private set
 
+    // Sync components
+    lateinit var driveServiceWrapper: DriveServiceWrapper
+        private set
+
+    lateinit var syncManager: SyncManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
         checkHiddenApiBypass()
         initializeDatabase()
+        initializeSyncComponents()
+
+        // Initialize WorkManager
+        WorkManager.initialize(
+            this,
+            getWorkManagerConfiguration()
+        )
     }
 
     private fun checkHiddenApiBypass() {
@@ -72,6 +91,27 @@ class NotesApp : Application() {
         pageNotebookRepository = PageNotebookRepository(
             database.pageNotebookDao()
         )
+    }
+
+    private fun initializeSyncComponents() {
+        // Initialize Drive service wrapper
+        driveServiceWrapper = DriveServiceWrapper(this)
+
+        // Initialize sync manager
+        syncManager = SyncManager(
+            this,
+            noteRepository,
+            driveServiceWrapper,
+            applicationScope
+        )
+    }
+
+    // Implementation of Configuration.Provider interface
+
+    fun getWorkManagerConfiguration(): Configuration {
+        return Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
     }
 
     companion object {

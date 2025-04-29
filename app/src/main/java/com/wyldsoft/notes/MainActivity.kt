@@ -1,6 +1,8 @@
+// app/src/main/java/com/wyldsoft/notes/MainActivity.kt (updates)
 package com.wyldsoft.notes
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -8,7 +10,9 @@ import android.os.Environment
 import android.provider.Settings
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -17,6 +21,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +35,8 @@ import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.classes.LocalSnackContext
 import com.wyldsoft.notes.classes.SnackBar
 import com.wyldsoft.notes.classes.SnackState
+import com.wyldsoft.notes.components.ConflictResolutionDialog
+import com.wyldsoft.notes.sync.Resolution
 import com.wyldsoft.notes.views.Router
 import kotlinx.coroutines.launch
 
@@ -35,11 +44,14 @@ import kotlinx.coroutines.launch
 @ExperimentalComposeUiApi
 @ExperimentalFoundationApi
 class MainActivity : ComponentActivity() {
+    private lateinit var app: NotesApp
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableFullScreen()
         requestPermissions()
+
+        app = application as NotesApp
 
         // Initialize screen dimensions if needed
         val screenWidth = resources.displayMetrics.widthPixels
@@ -62,6 +74,33 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Router()
                             SnackBar(state = snackState)
+
+                            // Google Sign-in launcher
+                            val signInLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.StartActivityForResult()
+                            ) { result ->
+                                lifecycleScope.launch {
+                                    app.driveServiceWrapper.handleSignInResult(result.data)
+                                }
+                            }
+
+                            // Observe conflicts
+                            val conflictResolver = app.syncManager.conflictResolver
+                            val conflict by conflictResolver.conflictToResolve.collectAsState()
+
+                            // Show conflict resolution dialog if needed
+                            if (conflict != null) {
+                                ConflictResolutionDialog(
+                                    conflict = conflict!!,
+                                    onResolution = { resolution ->
+                                        conflictResolver.provideResolution(conflict!!.localNote.id, resolution)
+                                    },
+                                    onDismiss = {
+                                        // Default to using local version if dismissed
+                                        conflictResolver.provideResolution(conflict!!.localNote.id, Resolution.UseLocal)
+                                    }
+                                )
+                            }
                         }
                     }
                 }

@@ -24,10 +24,12 @@ import androidx.navigation.NavController
 import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.components.AddItemDialog
 import com.wyldsoft.notes.components.HomeSettingsDialog
+import com.wyldsoft.notes.components.SyncStatusIndicator
 import com.wyldsoft.notes.database.entity.FolderEntity
 import com.wyldsoft.notes.database.entity.NoteEntity
 import com.wyldsoft.notes.database.entity.NotebookEntity
 import com.wyldsoft.notes.models.FolderModel
+import com.wyldsoft.notes.sync.SyncState
 import com.wyldsoft.notes.utils.noRippleClickable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -297,6 +299,26 @@ fun HomeView(
             TopAppBar(
                 title = { Text("My Notes") },
                 actions = {
+                    val app = NotesApp.getApp(LocalContext.current)
+                    val syncState by app.syncManager.syncState.collectAsState()
+                    val lastSyncTime by app.syncManager.lastSyncTime.collectAsState()
+
+                    SyncStatusIndicator(
+                        syncState = syncState,
+                        lastSyncTime = lastSyncTime,
+                        onClick = {
+                            // Show sync dialog on click
+                            if (syncState == SyncState.ERROR) {
+                                // Reset error state
+                                app.syncManager.resetErrorState()
+                            } else {
+                                showSyncDialog = true
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Settings",

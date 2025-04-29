@@ -1,4 +1,4 @@
-// app/src/main/java/com/wyldsoft/notes/components/HomeSettingsDialog.kt
+// app/src/main/java/com/wyldsoft/notes/components/HomeSettingsDialog.kt (updated)
 package com.wyldsoft.notes.components
 
 import androidx.compose.foundation.background
@@ -6,21 +6,27 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.backup.rememberBackupManager
 
 @Composable
 fun HomeSettingsDialog(
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val app = NotesApp.getApp(context)
+
     var showBackupDialog by remember { mutableStateOf(false) }
+    var showSyncDialog by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -35,7 +41,29 @@ fun HomeSettingsDialog(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Backup settings button
+            // Google Drive sync settings button
+            Button(
+                onClick = {
+                    showSyncDialog = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = "Sync Settings"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Google Drive Sync")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Backup settings button (legacy)
             Button(
                 onClick = {
                     showBackupDialog = true
@@ -51,7 +79,7 @@ fun HomeSettingsDialog(
                         contentDescription = "Backup Settings"
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Backup and Restore")
+                    Text("Legacy Backup")
                 }
             }
 
@@ -70,6 +98,13 @@ fun HomeSettingsDialog(
     if (showBackupDialog) {
         BackupSettingsDialog(
             onDismiss = { showBackupDialog = false }
+        )
+    }
+
+    if (showSyncDialog) {
+        SyncSettingsDialog(
+            syncManager = app.syncManager,
+            onDismiss = { showSyncDialog = false }
         )
     }
 }
