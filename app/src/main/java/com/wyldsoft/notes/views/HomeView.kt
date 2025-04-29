@@ -312,7 +312,7 @@ fun HomeView(
                                 // Reset error state
                                 app.syncManager.resetErrorState()
                             } else {
-                                showSyncDialog = true
+                                var showSyncDialog = true // todo what is this for?
                             }
                         }
                     )

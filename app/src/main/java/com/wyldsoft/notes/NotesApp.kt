@@ -49,12 +49,6 @@ class NotesApp : Application(), Configuration.Provider {
         checkHiddenApiBypass()
         initializeDatabase()
         initializeSyncComponents()
-
-        // Initialize WorkManager
-        WorkManager.initialize(
-            this,
-            getWorkManagerConfiguration()
-        )
     }
 
     private fun checkHiddenApiBypass() {
@@ -107,12 +101,10 @@ class NotesApp : Application(), Configuration.Provider {
     }
 
     // Implementation of Configuration.Provider interface
-
-    fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder()
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
             .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
-    }
 
     companion object {
         // Helper function to get the application instance from a context

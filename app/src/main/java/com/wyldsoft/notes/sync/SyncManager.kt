@@ -74,7 +74,7 @@ class SyncManager(
      * Performs a full synchronization operation
      */
     suspend fun performSync(): Boolean {
-        if (!networkMonitor.canSync()) {
+        if (!networkMonitor.canSync(syncOnlyOnWifi)) {
             _errorMessage.value = "Cannot sync: Wi-Fi not available and sync is set to Wi-Fi only"
             return false
         }

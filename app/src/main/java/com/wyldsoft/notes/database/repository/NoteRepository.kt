@@ -141,6 +141,16 @@ class NoteRepository(
     }
 
     /**
+     * Deletes all strokes for a note
+     */
+    suspend fun deleteStrokesForNote(noteId: String) {
+        // Use the strokeDao to delete all strokes for the note
+        strokeDao.deleteStrokesForNote(noteId)
+
+        // The foreign key constraint will automatically delete related points
+    }
+
+    /**
      * Converts database entities to a Stroke object
      */
     private fun convertToStroke(
