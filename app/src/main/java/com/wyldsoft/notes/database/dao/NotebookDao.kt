@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NotebookDao {
     @Query("SELECT * FROM notebooks ORDER BY title ASC")
+    suspend fun getAllNotebooksSync(): List<NotebookEntity>
+
+    @Query("SELECT * FROM notebooks ORDER BY title ASC")
     fun getAllNotebooks(): Flow<List<NotebookEntity>>
 
     @Query("SELECT * FROM notebooks WHERE folderId = :folderId ORDER BY title ASC")

@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wyldsoft.notes.database.repository.NoteRepository
 import com.wyldsoft.notes.database.entity.NoteEntity
+import com.wyldsoft.notes.database.repository.NotebookRepository
+import com.wyldsoft.notes.database.repository.PageNotebookRepository
 import com.wyldsoft.notes.utils.Stroke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +33,15 @@ enum class SyncFrequency(val intervalMinutes: Long) {
 class SyncManager(
     private val context: Context,
     private val noteRepository: NoteRepository,
+    private val notebookRepository: NotebookRepository, // Add this
+    private val pageNotebookRepository: PageNotebookRepository, // Add this
     val driveServiceWrapper: DriveServiceWrapper,
     private val coroutineScope: CoroutineScope
 ) {
     // Sync state
     private val _syncState = MutableStateFlow(SyncState.IDLE)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+    private var isSyncInProgress = false
 
     private val _syncProgress = MutableStateFlow(0f)
     val syncProgress: StateFlow<Float> = _syncProgress.asStateFlow()
@@ -75,6 +80,14 @@ class SyncManager(
      */
     suspend fun performSync(): Boolean {
         android.util.Log.d("SyncManager", "Starting sync process")
+        if (isSyncInProgress) {
+            println("sync: is syncing true")
+            android.util.Log.d("SyncManager", "Sync already in progress, skipping this request")
+            return false
+        }
+
+        isSyncInProgress = true
+        changeTracker.beginSync()
 
         if (!networkMonitor.canSync(syncOnlyOnWifi)) {
             android.util.Log.d("SyncManager", "Cannot sync: Wi-Fi not available and sync is set to Wi-Fi only")
@@ -102,6 +115,19 @@ class SyncManager(
             // Download remote changes first
             android.util.Log.d("SyncManager", "Downloading remote changes")
             val remoteChanges = downloadChanges()
+
+
+            android.util.Log.d("SyncManager", "Checking database after download")
+            val allNotes = noteRepository.getAllNotesSync() // We'll need to create this method
+            android.util.Log.d("SyncManager", "Total notes in database: ${allNotes.size}")
+            allNotes.forEach { note ->
+                android.util.Log.d("SyncManager", "Note in DB: ${note.id} - ${note.title}")
+                // Check if note is in any notebook
+                val notebookCount = pageNotebookRepository.getNotebookCountForPage(note.id)
+                android.util.Log.d("SyncManager", "Note belongs to ${notebookCount} notebooks")
+            }
+
+
             _syncProgress.value = 0.5f
             android.util.Log.d("SyncManager", "Downloaded ${remoteChanges.size} remote changes")
 
@@ -132,44 +158,116 @@ class SyncManager(
             _errorMessage.value = "Sync failed: ${e.message}"
             _syncState.value = SyncState.ERROR
             return false
+        } finally {
+            // Important: Always reset the flag when done, even if there was an error
+            isSyncInProgress = false
+            changeTracker.endSync()
         }
     }
+
 
     /**
      * Downloads changes from Google Drive
      */
     private suspend fun downloadChanges(): List<NoteEntity> = withContext(Dispatchers.IO) {
-        println("sync: downloadChanges 1")
         // Get last sync time
         val lastSync = _lastSyncTime.value ?: Date(0) // If never synced, use epoch time
+        android.util.Log.d("SyncManager", "Downloading changes since: $lastSync")
 
         // Get metadata file to determine changes
         val metadataFile = driveServiceWrapper.getMetadataFile()
+        android.util.Log.d("SyncManager", "Metadata file found: ${metadataFile != null}")
 
         // Build list of files that changed remotely
         val changedFiles = driveServiceWrapper.getChangedFiles(lastSync)
+        android.util.Log.d("SyncManager", "Found ${changedFiles.size} changed files")
+
+        if (changedFiles.isEmpty()) {
+            android.util.Log.d("SyncManager", "No changed files found - checking if this is initial sync")
+            // If this is potentially an initial sync (no notes exist locally), try with epoch time
+            if (noteRepository.getNotesCount() == 0) {
+                android.util.Log.d("SyncManager", "No local notes found - attempting to download all remote notes")
+                val allFiles = driveServiceWrapper.getChangedFiles(Date(0))
+                android.util.Log.d("SyncManager", "Found ${allFiles.size} total files on Drive")
+                // Use all files instead if we found some
+                if (allFiles.isNotEmpty()) {
+                    return@withContext downloadFilesFromDrive(allFiles, lastSync)
+                }
+            }
+            return@withContext emptyList()
+        }
+
+        return@withContext downloadFilesFromDrive(changedFiles, lastSync)
+    }
+
+    /**
+     * Helper method to download and process files from Drive
+     */
+    private suspend fun downloadFilesFromDrive(files: List<DriveFileInfo>, lastSync: Date): List<NoteEntity> {
         val downloadedNotes = mutableListOf<NoteEntity>()
-        println("sync: downloadChanges 2")
-        // Process each changed file
-        for ((index, fileInfo) in changedFiles.withIndex()) {
-            println("sync: downloadChanges 3")
+        val notebookMap = mutableMapOf<String, String>() // Map of notebook title to ID
+
+        // Process each file
+        for ((index, fileInfo) in files.withIndex()) {
             // Update progress
-            _syncProgress.value = 0.1f + (0.4f * index / changedFiles.size.toFloat())
+            _syncProgress.value = 0.1f + (0.4f * index / files.size.toFloat())
+            android.util.Log.d("SyncManager", "Processing file ${index+1}/${files.size}: ${fileInfo.name}")
 
             try {
-                println("sync: downloadChanges 4")
+                // Skip files that don't look like notes (based on naming convention)
+                if (!fileInfo.name.contains("_") || !fileInfo.name.endsWith(".json")) {
+                    android.util.Log.d("SyncManager", "Skipping non-note file: ${fileInfo.name}")
+                    continue
+                }
+
                 // Download file
                 val fileContent = driveServiceWrapper.downloadFile(fileInfo.id)
+                android.util.Log.d("SyncManager", "Downloaded file content length: ${fileContent.length}")
+
+                // Parse full file content as JSON
+                val jsonObj = try {
+                    org.json.JSONObject(fileContent)
+                } catch (e: Exception) {
+                    android.util.Log.e("SyncManager", "Error parsing JSON: ${e.message}", e)
+                    continue
+                }
+
+                // Extract notebook info if present
+                val notebooks = if (jsonObj.has("notebooks")) {
+                    try {
+                        val notebooksArray = jsonObj.getJSONArray("notebooks")
+                        val notebookTitles = mutableListOf<String>()
+                        for (i in 0 until notebooksArray.length()) {
+                            notebookTitles.add(notebooksArray.getString(i))
+                        }
+                        notebookTitles
+                    } catch (e: Exception) {
+                        android.util.Log.e("SyncManager", "Error parsing notebooks: ${e.message}", e)
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
 
                 // Deserialize to note
-                val remoteNote = NoteSerializer.deserialize(fileContent)
+                val remoteNote = try {
+                    NoteSerializer.deserialize(fileContent)
+                } catch (e: Exception) {
+                    android.util.Log.e("SyncManager", "Error deserializing note: ${e.message}", e)
+                    continue
+                }
+
+                android.util.Log.d("SyncManager", "Deserialized note: ${remoteNote.id} - ${remoteNote.title}")
+                android.util.Log.d("SyncManager", "Note belongs to notebooks: ${notebooks.joinToString()}")
 
                 // Check for conflicts
                 val localNote = noteRepository.getNoteById(remoteNote.id)
 
                 if (localNote != null) {
+                    android.util.Log.d("SyncManager", "Found existing local note with same ID")
                     // Potential conflict - check if both have changed
                     if (localNote.updatedAt > lastSync && remoteNote.updatedAt > lastSync) {
+                        android.util.Log.d("SyncManager", "Conflict detected - both local and remote notes modified")
                         // Conflict! Resolve it
                         val resolution = conflictResolver.resolveConflict(
                             localNote = localNote,
@@ -178,39 +276,137 @@ class SyncManager(
 
                         when (resolution) {
                             is Resolution.UseLocal -> {
+                                android.util.Log.d("SyncManager", "Resolution: Using local version")
                                 // Keep local, upload it to override remote
                                 uploadNote(localNote)
                             }
                             is Resolution.UseRemote -> {
+                                android.util.Log.d("SyncManager", "Resolution: Using remote version")
                                 // Use remote version
                                 saveRemoteNote(remoteNote, fileInfo)
                                 downloadedNotes.add(remoteNote)
+
+                                // Remember notebooks this note belongs to
+                                if (notebooks.isNotEmpty()) {
+                                    associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                                }
                             }
                             is Resolution.KeepBoth -> {
+                                android.util.Log.d("SyncManager", "Resolution: Keeping both versions")
                                 // Create a duplicate note with new ID
                                 val duplicateNote = createDuplicateNote(remoteNote)
                                 downloadedNotes.add(duplicateNote)
+
+                                // Remember notebooks this note belongs to
+                                if (notebooks.isNotEmpty()) {
+                                    associateNoteWithNotebooks(duplicateNote.id, notebooks, notebookMap)
+                                }
                             }
                         }
                     } else if (remoteNote.updatedAt > localNote.updatedAt) {
+                        android.util.Log.d("SyncManager", "Remote note is newer, using it")
                         // Remote is newer, use it
                         saveRemoteNote(remoteNote, fileInfo)
                         downloadedNotes.add(remoteNote)
+
+                        // Remember notebooks this note belongs to
+                        if (notebooks.isNotEmpty()) {
+                            associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                        }
+                    } else {
+                        android.util.Log.d("SyncManager", "Local note is newer, keeping it")
                     }
                     // If local is newer, we'll upload it in the upload phase
                 } else {
+                    android.util.Log.d("SyncManager", "No local copy, saving remote note")
                     // No local copy, just save it
                     saveRemoteNote(remoteNote, fileInfo)
                     downloadedNotes.add(remoteNote)
+
+                    // Remember notebooks this note belongs to
+                    if (notebooks.isNotEmpty()) {
+                        associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                    }
                 }
             } catch (e: Exception) {
                 // Log error but continue with next file
-                println("Error downloading file ${fileInfo.name}: ${e.message}")
+                android.util.Log.e("SyncManager", "Error downloading file ${fileInfo.name}: ${e.message}", e)
             }
         }
 
-        return@withContext downloadedNotes
+        // Create a default notebook if no notebooks were specified
+        if (downloadedNotes.isNotEmpty() && notebookMap.isEmpty()) {
+            android.util.Log.d("SyncManager", "No notebooks specified for any notes. Creating default notebook.")
+            val defaultNotebookId = ensureDefaultSyncNotebook()
+
+            // Add all notes to the default notebook
+            for (note in downloadedNotes) {
+                // Only add if not already in a notebook
+                val notebookCount = pageNotebookRepository.getNotebookCountForPage(note.id)
+                if (notebookCount == 0) {
+                    android.util.Log.d("SyncManager", "Adding note ${note.id} to default notebook")
+                    pageNotebookRepository.addPageToNotebook(note.id, defaultNotebookId)
+                }
+            }
+        }
+
+        android.util.Log.d("SyncManager", "Downloaded and processed ${downloadedNotes.size} notes with ${notebookMap.size} notebooks")
+        return downloadedNotes
     }
+
+    /**
+     * Helper method to associate a note with its notebooks
+     */
+    private suspend fun associateNoteWithNotebooks(
+        noteId: String,
+        notebookTitles: List<String>,
+        notebookMap: MutableMap<String, String>
+    ) {
+        for (title in notebookTitles) {
+            // Get or create notebook
+            val notebookId = notebookMap.getOrPut(title) {
+                // Check if notebook already exists
+                val existingNotebooks = notebookRepository.getAllNotebooksSync()
+                val existingNotebook = existingNotebooks.find { it.title == title }
+
+                if (existingNotebook != null) {
+                    android.util.Log.d("SyncManager", "Found existing notebook: $title")
+                    existingNotebook.id
+                } else {
+                    // Create new notebook
+                    android.util.Log.d("SyncManager", "Creating new notebook: $title")
+                    val notebook = notebookRepository.createNotebook(title)
+                    notebook.id
+                }
+            }
+
+            // Add note to notebook
+            android.util.Log.d("SyncManager", "Adding note $noteId to notebook: $title")
+            pageNotebookRepository.addPageToNotebook(noteId, notebookId)
+        }
+    }
+
+    /**
+     * Ensures a default notebook exists for synced notes
+     * @return ID of the default notebook
+     */
+    private suspend fun ensureDefaultSyncNotebook(): String {
+        // Search for existing default notebook
+        val allNotebooks = notebookRepository.getAllNotebooksSync()
+        val defaultNotebook = allNotebooks.find { it.title == "Google Drive Sync" }
+
+        if (defaultNotebook != null) {
+            android.util.Log.d("SyncManager", "Found existing default sync notebook: ${defaultNotebook.id}")
+            return defaultNotebook.id
+        }
+
+        // Create a new default notebook
+        android.util.Log.d("SyncManager", "Creating new default sync notebook")
+        val notebook = notebookRepository.createNotebook("Google Drive Sync")
+        return notebook.id
+    }
+
+
 
     /**
      * Uploads local changes to Google Drive
@@ -253,8 +449,14 @@ class SyncManager(
         // Get strokes for this note
         val strokes = noteRepository.getStrokesForNote(note.id)
 
+        // Get notebooks this note belongs to
+        val notebooks = pageNotebookRepository.getNotebooksContainingPageSync(note.id)
+        val notebookTitles = notebooks.map { it.title }
+
+        android.util.Log.d("SyncManager", "Uploading note ${note.id} with ${strokes.size} strokes to notebooks: ${notebookTitles.joinToString()}")
+
         // Serialize note and strokes
-        val noteData = NoteSerializer.serialize(note, strokes)
+        val noteData = NoteSerializer.serialize(note, strokes, notebookTitles)
 
         // Check if note already exists on Drive
         val existingFile = driveServiceWrapper.findNoteFile(note.id)
@@ -275,16 +477,37 @@ class SyncManager(
      * Saves a remote note to local storage
      */
     private suspend fun saveRemoteNote(remoteNote: NoteEntity, fileInfo: DriveFileInfo) {
-        // Save note to database
-        noteRepository.updateNote(remoteNote)
+        try {
+            android.util.Log.d("SyncManager", "Saving remote note: ${remoteNote.id} - ${remoteNote.title}")
 
-        // Check if we need to download strokes
-        val noteContent = driveServiceWrapper.downloadFile(fileInfo.id)
-        val strokes = NoteSerializer.deserializeStrokes(noteContent, remoteNote.id)
+            // FIRST: Save note to database
+            // We need to make sure the note exists before we try to save strokes
+            noteRepository.createOrUpdateNote(remoteNote)
+            android.util.Log.d("SyncManager", "Note entity saved successfully")
 
-        // Delete existing strokes and replace with remote ones
-        noteRepository.deleteStrokesForNote(remoteNote.id)
-        noteRepository.saveStrokes(remoteNote.id, strokes)
+            // THEN: Check if we need to download strokes
+            val noteContent = driveServiceWrapper.downloadFile(fileInfo.id)
+
+            try {
+                val strokes = NoteSerializer.deserializeStrokes(noteContent, remoteNote.id)
+                android.util.Log.d("SyncManager", "Deserialized ${strokes.size} strokes")
+
+                // Delete existing strokes and replace with remote ones
+                noteRepository.deleteStrokesForNote(remoteNote.id)
+                android.util.Log.d("SyncManager", "Deleted existing strokes")
+
+                if (strokes.isNotEmpty()) {
+                    noteRepository.saveStrokes(remoteNote.id, strokes)
+                    android.util.Log.d("SyncManager", "Saved ${strokes.size} strokes")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SyncManager", "Error processing strokes: ${e.message}", e)
+                // Continue without strokes if there's an error
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SyncManager", "Error saving remote note: ${e.message}", e)
+            throw e
+        }
     }
 
     /**

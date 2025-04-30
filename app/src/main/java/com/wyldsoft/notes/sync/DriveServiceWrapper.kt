@@ -277,15 +277,40 @@ class DriveServiceWrapper(private val context: Context) {
             val service = driveService ?: throw IllegalStateException("Drive service not initialized")
             val folderId = ensureNotesFolder()
 
-            // Skip metadata file
-            val query = "'$folderId' in parents and name != '$METADATA_FILENAME' and " +
-                    "modifiedTime > '${formatDateForDriveQuery(since)}' and trashed = false"
+            // Log the query parameters
+            android.util.Log.d("DriveServiceWrapper", "Searching for changed files since: ${formatDateForDriveQuery(since)}")
+            android.util.Log.d("DriveServiceWrapper", "In folder: $folderId")
 
-            val result = service.files().list()
-                .setQ(query)
-                .setSpaces("drive")
-                .setFields("files(id, name, modifiedTime, mimeType)")
-                .execute()
+            // Query to find all files (not just changed ones) in the Notes folder
+            // This helps with initial download when the app has no files
+            val query = if (since.time <= 1000) { // If date is very old (close to epoch)
+                // Get all files in the folder
+                "'$folderId' in parents and name != '$METADATA_FILENAME' and trashed = false"
+            } else {
+                // Get only files modified since the last sync
+                "'$folderId' in parents and name != '$METADATA_FILENAME' and " +
+                        "modifiedTime > '${formatDateForDriveQuery(since)}' and trashed = false"
+            }
+
+            android.util.Log.d("DriveServiceWrapper", "Query: $query")
+
+            val result = try {
+                service.files().list()
+                    .setQ(query)
+                    .setSpaces("drive")
+                    .setFields("files(id, name, modifiedTime, mimeType)")
+                    .execute()
+            } catch (e: Exception) {
+                android.util.Log.e("DriveServiceWrapper", "Error querying Drive: ${e.message}", e)
+                throw e
+            }
+
+            android.util.Log.d("DriveServiceWrapper", "Query returned ${result.files.size} files")
+
+            // Log the results for debugging
+            result.files.forEach { file ->
+                android.util.Log.d("DriveServiceWrapper", "Found file: ${file.name} (${file.id})")
+            }
 
             return@withContext result.files.map { file ->
                 DriveFileInfo(

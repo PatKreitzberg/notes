@@ -22,6 +22,10 @@ class PageNotebookRepository(private val pageNotebookDao: PageNotebookDao) {
         pageNotebookDao.removePageFromNotebook(pageId, notebookId)
     }
 
+    suspend fun getNotebooksContainingPageSync(pageId: String): List<NotebookEntity> {
+        return pageNotebookDao.getNotebooksContainingPageSync(pageId)
+    }
+
     suspend fun removePageFromAllNotebooks(pageId: String) {
         pageNotebookDao.removePageFromAllNotebooks(pageId)
     }

@@ -17,7 +17,7 @@ object NoteSerializer {
     /**
      * Serializes a note and its strokes to JSON
      */
-    fun serialize(note: NoteEntity, strokes: List<Stroke>): String {
+    fun serialize(note: NoteEntity, strokes: List<Stroke>, notebookTitles: List<String> = emptyList()): String {
         val json = JSONObject()
 
         // Note metadata
@@ -28,6 +28,15 @@ object NoteSerializer {
         json.put("width", note.width)
         json.put("height", note.height)
         json.put("version", 1) // For future compatibility
+
+        // Include notebook information if provided
+        if (notebookTitles.isNotEmpty()) {
+            val notebooksArray = JSONArray()
+            for (title in notebookTitles) {
+                notebooksArray.put(title)
+            }
+            json.put("notebooks", notebooksArray)
+        }
 
         // Serialize strokes
         val strokesArray = JSONArray()

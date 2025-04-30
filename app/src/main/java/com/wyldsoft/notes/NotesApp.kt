@@ -96,6 +96,8 @@ class NotesApp : Application(), Configuration.Provider {
         syncManager = SyncManager(
             this,
             noteRepository,
+            notebookRepository,
+            pageNotebookRepository,
             driveServiceWrapper,
             applicationScope
         )

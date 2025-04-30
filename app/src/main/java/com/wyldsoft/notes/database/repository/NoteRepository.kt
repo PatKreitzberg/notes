@@ -22,11 +22,36 @@ class NoteRepository(
     private val strokeDao: StrokeDao,
     private val strokePointDao: StrokePointDao
 ) {
+
+    suspend fun getNotesCount(): Int {
+        return noteDao.getNotesCount()
+    }
+
+    /**
+     * Creates a new note or updates an existing one
+     */
+    suspend fun createOrUpdateNote(note: NoteEntity) {
+        val existingNote = noteDao.getNoteById(note.id)
+
+        if (existingNote == null) {
+            // Create new note
+            noteDao.insertNote(note)
+        } else {
+            // Update existing note
+            noteDao.updateNote(note)
+        }
+    }
+
     /**
      * Gets all notes as a Flow
      */
     fun getAllNotes(): Flow<List<NoteEntity>> {
         return noteDao.getAllNotes()
+    }
+
+    // for debug
+    suspend fun getAllNotesSync(): List<NoteEntity> {
+        return noteDao.getAllNotesSync()
     }
 
     /**

@@ -22,6 +22,9 @@ class ChangeTracker(
     // Track changed note IDs since last sync
     private val changedNoteIds = ConcurrentHashMap<String, Date>()
 
+    private var isSyncInProgress = false
+
+
     // Observable changed notes
     private val _changedNotes = MutableStateFlow<List<NoteEntity>>(emptyList())
     val changedNotes: StateFlow<List<NoteEntity>> = _changedNotes.asStateFlow()
@@ -29,6 +32,14 @@ class ChangeTracker(
     init {
         // Listen for note changes
         setupListeners()
+    }
+
+    fun beginSync() {
+        isSyncInProgress = true
+    }
+
+    fun endSync() {
+        isSyncInProgress = false
     }
 
     /**
@@ -75,10 +86,15 @@ class ChangeTracker(
      * changing title, etc.)
      */
     fun registerNoteChanged(noteId: String) {
+        // Skip if sync is in progress to avoid recursive changes
+        if (isSyncInProgress) {
+            android.util.Log.d("ChangeTracker", "Ignoring change during sync: $noteId")
+            return
+        }
+
         changedNoteIds[noteId] = Date()
         updateChangedNotes()
 
-        // Log that a note was registered for change tracking
         android.util.Log.d("ChangeTracker", "Registered note change: $noteId")
     }
 

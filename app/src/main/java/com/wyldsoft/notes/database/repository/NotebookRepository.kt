@@ -8,6 +8,10 @@ import java.util.UUID
 
 class NotebookRepository(private val notebookDao: NotebookDao) {
 
+    suspend fun getAllNotebooksSync(): List<NotebookEntity> {
+        return notebookDao.getAllNotebooksSync()
+    }
+
     fun getAllNotebooks(): Flow<List<NotebookEntity>> {
         return notebookDao.getAllNotebooks()
     }

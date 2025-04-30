@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    suspend fun getAllNotesSync(): List<NoteEntity>
+
+    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :noteId")

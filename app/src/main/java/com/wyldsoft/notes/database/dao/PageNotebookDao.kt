@@ -30,4 +30,7 @@ interface PageNotebookDao {
 
     @Query("SELECT COUNT(*) FROM page_notebook_join WHERE pageId = :pageId")
     suspend fun getNotebookCountForPage(pageId: String): Int
+
+    @Query("SELECT * FROM notebooks INNER JOIN page_notebook_join ON notebooks.id = page_notebook_join.notebookId WHERE page_notebook_join.pageId = :pageId")
+    suspend fun getNotebooksContainingPageSync(pageId: String): List<NotebookEntity>
 }
