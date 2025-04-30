@@ -53,7 +53,7 @@ class SyncManager(
     var syncFrequency by mutableStateOf(SyncFrequency.REALTIME)
 
     // Components
-    private val changeTracker = ChangeTracker(noteRepository, coroutineScope)
+    val changeTracker = ChangeTracker(noteRepository, coroutineScope)
     val conflictResolver = ConflictResolver(context)
     private val networkMonitor = NetworkMonitor(context)
 
@@ -74,7 +74,10 @@ class SyncManager(
      * Performs a full synchronization operation
      */
     suspend fun performSync(): Boolean {
+        android.util.Log.d("SyncManager", "Starting sync process")
+
         if (!networkMonitor.canSync(syncOnlyOnWifi)) {
+            android.util.Log.d("SyncManager", "Cannot sync: Wi-Fi not available and sync is set to Wi-Fi only")
             _errorMessage.value = "Cannot sync: Wi-Fi not available and sync is set to Wi-Fi only"
             _syncState.value = SyncState.ERROR
             return false
@@ -82,9 +85,11 @@ class SyncManager(
 
         try {
             _syncState.value = SyncState.CONNECTING
+            android.util.Log.d("SyncManager", "Connecting to Google Drive")
 
             // Check Google Drive connection
             if (!driveServiceWrapper.isSignedIn()) {
+                android.util.Log.d("SyncManager", "Not signed in to Google Drive")
                 _errorMessage.value = "Not signed in to Google Drive. Please sign in first."
                 _syncState.value = SyncState.ERROR
                 return false
@@ -92,14 +97,19 @@ class SyncManager(
 
             _syncState.value = SyncState.SYNCING
             _syncProgress.value = 0.1f
+            android.util.Log.d("SyncManager", "Connected, beginning sync process")
 
             // Download remote changes first
+            android.util.Log.d("SyncManager", "Downloading remote changes")
             val remoteChanges = downloadChanges()
             _syncProgress.value = 0.5f
+            android.util.Log.d("SyncManager", "Downloaded ${remoteChanges.size} remote changes")
 
             // Then upload local changes
+            android.util.Log.d("SyncManager", "Uploading local changes")
             val localChangesSynced = uploadChanges()
             _syncProgress.value = 0.9f
+            android.util.Log.d("SyncManager", "Local changes sync completed: $localChangesSynced")
 
             // Update last sync time
             _lastSyncTime.value = Date()
@@ -107,15 +117,18 @@ class SyncManager(
 
             _syncState.value = SyncState.SUCCESS
             _syncProgress.value = 1.0f
+            android.util.Log.d("SyncManager", "Sync completed successfully")
             return true
 
         } catch (e: IllegalStateException) {
             // Specific handling for authentication errors
+            android.util.Log.e("SyncManager", "Authentication error: ${e.message}", e)
             _errorMessage.value = e.message ?: "Authentication error"
             _syncState.value = SyncState.ERROR
             return false
         } catch (e: Exception) {
             // General error handling
+            android.util.Log.e("SyncManager", "Sync failed: ${e.message}", e)
             _errorMessage.value = "Sync failed: ${e.message}"
             _syncState.value = SyncState.ERROR
             return false
@@ -126,6 +139,7 @@ class SyncManager(
      * Downloads changes from Google Drive
      */
     private suspend fun downloadChanges(): List<NoteEntity> = withContext(Dispatchers.IO) {
+        println("sync: downloadChanges 1")
         // Get last sync time
         val lastSync = _lastSyncTime.value ?: Date(0) // If never synced, use epoch time
 
@@ -135,13 +149,15 @@ class SyncManager(
         // Build list of files that changed remotely
         val changedFiles = driveServiceWrapper.getChangedFiles(lastSync)
         val downloadedNotes = mutableListOf<NoteEntity>()
-
+        println("sync: downloadChanges 2")
         // Process each changed file
         for ((index, fileInfo) in changedFiles.withIndex()) {
+            println("sync: downloadChanges 3")
             // Update progress
             _syncProgress.value = 0.1f + (0.4f * index / changedFiles.size.toFloat())
 
             try {
+                println("sync: downloadChanges 4")
                 // Download file
                 val fileContent = driveServiceWrapper.downloadFile(fileInfo.id)
 
@@ -201,20 +217,30 @@ class SyncManager(
      */
     private suspend fun uploadChanges(): Boolean = withContext(Dispatchers.IO) {
         val lastSync = _lastSyncTime.value ?: Date(0)
+        android.util.Log.d("SyncManager", "Getting notes changed since ${lastSync}")
 
         // Get notes that changed locally since last sync
         val changedNotes = changeTracker.getChangedNotesSince(lastSync)
+        android.util.Log.d("SyncManager", "Found ${changedNotes.size} notes to upload")
 
         for ((index, note) in changedNotes.withIndex()) {
             // Update progress
             _syncProgress.value = 0.5f + (0.4f * index / changedNotes.size.toFloat())
+            android.util.Log.d("SyncManager", "Uploading note ${note.id}: ${note.title}")
 
             try {
                 uploadNote(note)
+                android.util.Log.d("SyncManager", "Successfully uploaded note ${note.id}")
             } catch (e: Exception) {
                 // Log error but continue with next note
-                println("Error uploading note ${note.title}: ${e.message}")
+                android.util.Log.e("SyncManager", "Error uploading note ${note.title}: ${e.message}", e)
             }
+        }
+
+        // After successful upload, clear the change tracking
+        if (changedNotes.isNotEmpty()) {
+            android.util.Log.d("SyncManager", "Clearing change tracking after successful upload")
+            changeTracker.clearChanges()
         }
 
         return@withContext true

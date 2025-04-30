@@ -10,11 +10,14 @@ import com.wyldsoft.notes.utils.Stroke
 import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
+import android.content.Context
+
 
 /**
  * Repository class for handling note-related database operations
  */
 class NoteRepository(
+    private val context: Context,
     private val noteDao: NoteDao,
     private val strokeDao: StrokeDao,
     private val strokePointDao: StrokePointDao
@@ -61,6 +64,11 @@ class NoteRepository(
     suspend fun updateNote(note: NoteEntity) {
         val updatedNote = note.copy(updatedAt = Date())
         noteDao.updateNote(updatedNote)
+
+        // Register note change for syncing
+        (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+            app.syncManager.changeTracker.registerNoteChanged(note.id)
+        }
     }
 
     /**
@@ -119,6 +127,9 @@ class NoteRepository(
                 )
             }
             strokePointDao.insertPoints(pointEntities)
+            (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+                app.syncManager.changeTracker.registerNoteChanged(noteId)
+            }
         }
 
         // Update the note's updatedAt timestamp
@@ -137,6 +148,10 @@ class NoteRepository(
         // Update the note's updatedAt timestamp
         noteDao.getNoteById(noteId)?.let { note ->
             updateNote(note)
+        }
+
+        (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+            app.syncManager.changeTracker.registerNoteChanged(noteId)
         }
     }
 

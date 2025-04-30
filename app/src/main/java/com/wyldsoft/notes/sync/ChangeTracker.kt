@@ -1,4 +1,4 @@
-// app/src/main/java/com/wyldsoft/notes/sync/ChangeTracker.kt
+// Updated ChangeTracker.kt with improved change tracking
 package com.wyldsoft.notes.sync
 
 import com.wyldsoft.notes.database.entity.NoteEntity
@@ -7,7 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
@@ -31,20 +31,55 @@ class ChangeTracker(
         setupListeners()
     }
 
+    /**
+     * Set up listeners to automatically track changes to notes
+     */
     private fun setupListeners() {
         coroutineScope.launch {
-            noteRepository.getAllNotes().collect { notes ->
-                // Don't do anything special yet, we'll track changes through explicit calls
+            // Monitor all notes for changes
+            noteRepository.getAllNotes().collectLatest { notes ->
+                // This will be called whenever the notes collection changes
+                // We now need to identify which notes have changed
+
+                // For simplicity, we'll compare with our existing tracked notes
+                // In a more sophisticated implementation, you might want to compare timestamps
+                val currentIds = changedNoteIds.keys.toSet()
+                val newIds = notes.map { it.id }.toSet()
+
+                // Find new notes or modified notes
+                val potentialChanges = notes.filter { note ->
+                    // A note is considered changed if:
+                    // 1. It wasn't previously tracked, or
+                    // 2. Its update timestamp is newer than our tracked timestamp
+                    val existingTimestamp = changedNoteIds[note.id]
+                    existingTimestamp == null || note.updatedAt.after(existingTimestamp)
+                }
+
+                // Update our tracking for these notes
+                potentialChanges.forEach { note ->
+                    changedNoteIds[note.id] = note.updatedAt
+                }
+
+                // Update the observable state
+                updateChangedNotes()
             }
+
+            // Additional listeners could be added here for other events
+            // such as stroke additions/removals that might not trigger note updates
         }
     }
 
     /**
      * Register that a note has changed
+     * Call this method whenever a note is modified (e.g., when adding/removing strokes,
+     * changing title, etc.)
      */
     fun registerNoteChanged(noteId: String) {
         changedNoteIds[noteId] = Date()
         updateChangedNotes()
+
+        // Log that a note was registered for change tracking
+        android.util.Log.d("ChangeTracker", "Registered note change: $noteId")
     }
 
     /**
@@ -57,6 +92,8 @@ class ChangeTracker(
         val changedIds = changedNoteIds.entries
             .filter { it.value.after(since) }
             .map { it.key }
+
+        android.util.Log.d("ChangeTracker", "Getting changes since ${since}. Found ${changedIds.size} changed notes")
 
         // Get note entities
         for (id in changedIds) {
@@ -75,6 +112,7 @@ class ChangeTracker(
     fun clearChanges() {
         changedNoteIds.clear()
         updateChangedNotes()
+        android.util.Log.d("ChangeTracker", "Cleared all change tracking")
     }
 
     /**

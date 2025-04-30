@@ -63,6 +63,7 @@ class NotesApp : Application(), Configuration.Provider {
 
         // Initialize repositories
         noteRepository = NoteRepository(
+            this,
             database.noteDao(),
             database.strokeDao(),
             database.strokePointDao()

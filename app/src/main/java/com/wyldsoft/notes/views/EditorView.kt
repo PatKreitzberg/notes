@@ -270,6 +270,9 @@ fun EditorView(noteId: String? = null) {
                                         // Update local state
                                         noteTitle = newName
                                         println("DEBUG: Note renamed to $newName")
+
+                                        // Register note change for syncing
+                                        app.syncManager.changeTracker.registerNoteChanged(pageId)
                                     }
                                 } catch (e: Exception) {
                                     println("Error renaming note: ${e.message}")

@@ -134,6 +134,11 @@ class PageView(
             _strokesAdded.emit(strokesToAdd)
             // For backward compatibility
             _strokesChanged.emit(strokesToAdd)
+
+            // Register note change for syncing
+            (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+                app.syncManager.changeTracker.registerNoteChanged(id)
+            }
         }
     }
 
@@ -148,11 +153,16 @@ class PageView(
         computeHeight()
         persistBitmapDebounced()
 
-        // Very important: Notify that strokes have been removed using their IDs
+        // Notify that strokes have been removed using their IDs
         coroutineScope.launch {
             _strokesRemoved.emit(strokeIds)
             // For backward compatibility, emit an empty list to signal deletion
             _strokesChanged.emit(emptyList())
+
+            // Register note change for syncing
+            (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+                app.syncManager.changeTracker.registerNoteChanged(id)
+            }
         }
 
         println("DEBUG: Removed ${strokeIds.size} strokes, remaining: ${strokes.size}")
