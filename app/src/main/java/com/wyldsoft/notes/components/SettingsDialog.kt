@@ -86,8 +86,8 @@ fun SettingsDialog(
     val notebooksContainingPage = pageNotebookRepository.getNotebooksContainingPage(currentNoteId)
         .collectAsState(initial = emptyList())
 
-    // Track selected notebook IDs
-    val selectedNotebookIds = remember {
+    // Track selected notebook IDs - FIX: Initialize with current notebooks correctly
+    val selectedNotebookIds = remember(notebooksContainingPage.value) {
         mutableStateListOf<String>().apply {
             // Initialize with current notebooks
             notebooksContainingPage.value.forEach { notebook ->
@@ -307,9 +307,14 @@ fun SettingsDialog(
                                         if (isChecked) {
                                             selectedNotebookIds.add(notebook.id)
                                         } else {
-                                            selectedNotebookIds.remove(notebook.id)
+                                            // Only allow unchecking if there will be at least one notebook left
+                                            if (selectedNotebookIds.size > 1) {
+                                                selectedNotebookIds.remove(notebook.id)
+                                            }
                                         }
-                                    }
+                                    },
+                                    // Disable checkbox if it's the last selected one
+                                    enabled = !(selectedNotebookIds.size == 1 && selectedNotebookIds.contains(notebook.id))
                                 )
 
                                 Text(

@@ -133,19 +133,14 @@ fun HomeView(
                 scope.launch {
                     // Create a new page first
                     val pageId = java.util.UUID.randomUUID().toString()
-                    val now = java.util.Date()
-                    val note = NoteEntity(
-                        id = pageId,
-                        title = title,
-                        createdAt = now,
-                        updatedAt = now,
-                        width = 1000, // Default values
-                        height = 1500
-                    )
+
                     noteRepository.createNote(pageId, title, 1000, 1500)
 
                     // Add the page to the selected notebook
                     pageNotebookRepository.addPageToNotebook(pageId, selectedNotebookId!!)
+
+                    // Log for debugging
+                    println("DEBUG: Created new page $pageId and added it to notebook $selectedNotebookId")
 
                     // Navigate to the editor for the new page
                     navController.navigate("editor/$pageId")

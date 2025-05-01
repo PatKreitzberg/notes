@@ -154,6 +154,24 @@ fun EditorView(noteId: String? = null) {
                     width = width,
                     height = height
                 )
+
+                // Create default notebook if non exists and associate the note with it
+                scope.launch {
+                    // Check if there are any notebooks
+                    val allNotebooks = notebookRepository.getAllNotebooksSync()
+                    val notebookId = if (allNotebooks.isEmpty()) {
+                        // Create a default notebook if none exists
+                        val defaultNotebook = notebookRepository.createNotebook("My Notes")
+                        defaultNotebook.id
+                    } else {
+                        // Use the first notebook as default
+                        allNotebooks.first().id
+                    }
+
+                    // Associate the note with the notebook
+                    pageNotebookRepository.addPageToNotebook(pageId, notebookId)
+                    println("DEBUG: Associated new note $pageId with notebook $notebookId")
+                }
             }
         }
 
