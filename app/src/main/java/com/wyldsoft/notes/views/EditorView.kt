@@ -280,21 +280,6 @@ fun EditorView(noteId: String? = null) {
                             }
                         }
                     )
-
-                    // Add notebook management button
-                    Button(
-                        onClick = { showNotebookDialog = true },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Book,
-                            contentDescription = "Manage Notebooks"
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Manage Notebooks")
-                    }
                 }
             }
         }

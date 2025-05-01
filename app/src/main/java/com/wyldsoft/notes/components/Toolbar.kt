@@ -228,6 +228,7 @@ fun Toolbar(
                     SettingsDialog(
                         settingsRepository = settingsRepository,
                         currentNoteName = noteTitle,
+                        currentNoteId = state.pageId,  // Pass the note ID
                         onUpdateViewportTransformer = { isPaginationEnabled ->
                             viewportTransformer.updatePaginationState(isPaginationEnabled)
                         },
