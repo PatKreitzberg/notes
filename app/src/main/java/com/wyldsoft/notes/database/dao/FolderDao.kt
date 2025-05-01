@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FolderDao {
+    @Query("SELECT * FROM folders")
+    suspend fun getAllFoldersSync(): List<FolderEntity>
+
     @Query("SELECT * FROM folders WHERE parentId IS NULL ORDER BY name ASC")
     fun getRootFolders(): Flow<List<FolderEntity>>
 

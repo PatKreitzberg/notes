@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wyldsoft.notes.database.repository.NoteRepository
 import com.wyldsoft.notes.database.entity.NoteEntity
+import com.wyldsoft.notes.database.repository.FolderRepository
 import com.wyldsoft.notes.database.repository.NotebookRepository
 import com.wyldsoft.notes.database.repository.PageNotebookRepository
 import com.wyldsoft.notes.utils.Stroke
@@ -36,7 +37,8 @@ class SyncManager(
     private val notebookRepository: NotebookRepository, // Add this
     private val pageNotebookRepository: PageNotebookRepository, // Add this
     val driveServiceWrapper: DriveServiceWrapper,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val folderRepository: FolderRepository
 ) {
     // Sync state
     private val _syncState = MutableStateFlow(SyncState.IDLE)
@@ -206,6 +208,7 @@ class SyncManager(
     private suspend fun downloadFilesFromDrive(files: List<DriveFileInfo>, lastSync: Date): List<NoteEntity> {
         val downloadedNotes = mutableListOf<NoteEntity>()
         val notebookMap = mutableMapOf<String, String>() // Map of notebook title to ID
+        val folderMap = mutableMapOf<String, String>() // Map of folder ID to local ID
 
         // Process each file
         for ((index, fileInfo) in files.withIndex()) {
@@ -249,6 +252,15 @@ class SyncManager(
                     emptyList()
                 }
 
+                // Extract and process folder structure if present
+                if (jsonObj.has("folders")) {
+                    try {
+                        processFolderStructure(jsonObj.getJSONArray("folders"), folderMap)
+                    } catch (e: Exception) {
+                        android.util.Log.e("SyncManager", "Error processing folders: ${e.message}", e)
+                    }
+                }
+
                 // Deserialize to note
                 val remoteNote = try {
                     NoteSerializer.deserialize(fileContent)
@@ -288,7 +300,7 @@ class SyncManager(
 
                                 // Remember notebooks this note belongs to
                                 if (notebooks.isNotEmpty()) {
-                                    associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                                    associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap, folderMap)
                                 }
                             }
                             is Resolution.KeepBoth -> {
@@ -299,7 +311,7 @@ class SyncManager(
 
                                 // Remember notebooks this note belongs to
                                 if (notebooks.isNotEmpty()) {
-                                    associateNoteWithNotebooks(duplicateNote.id, notebooks, notebookMap)
+                                    associateNoteWithNotebooks(duplicateNote.id, notebooks, notebookMap, folderMap)
                                 }
                             }
                         }
@@ -311,7 +323,7 @@ class SyncManager(
 
                         // Remember notebooks this note belongs to
                         if (notebooks.isNotEmpty()) {
-                            associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                            associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap, folderMap)
                         }
                     } else {
                         android.util.Log.d("SyncManager", "Local note is newer, keeping it")
@@ -325,7 +337,7 @@ class SyncManager(
 
                     // Remember notebooks this note belongs to
                     if (notebooks.isNotEmpty()) {
-                        associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap)
+                        associateNoteWithNotebooks(remoteNote.id, notebooks, notebookMap, folderMap)
                     }
                 }
             } catch (e: Exception) {
@@ -355,12 +367,89 @@ class SyncManager(
     }
 
     /**
+     * Process folder structure from JSON
+     */
+    private suspend fun processFolderStructure(
+        foldersArray: org.json.JSONArray,
+        folderMap: MutableMap<String, String>
+    ) {
+        // First pass: Create all folders
+        val originalIdToFolder = mutableMapOf<String, org.json.JSONObject>()
+
+        for (i in 0 until foldersArray.length()) {
+            val folderJson = foldersArray.getJSONObject(i)
+            val originalId = folderJson.getString("id")
+            originalIdToFolder[originalId] = folderJson
+        }
+
+        // Process folders in order (parents first)
+        val processedIds = mutableSetOf<String>()
+
+        // Keep processing until all folders are handled
+        while (processedIds.size < originalIdToFolder.size) {
+            var processedAny = false
+
+            for ((originalId, folderJson) in originalIdToFolder) {
+                // Skip already processed
+                if (originalId in processedIds) continue
+
+                val parentId = if (folderJson.has("parentId") && !folderJson.isNull("parentId"))
+                    folderJson.getString("parentId") else null
+
+                // Process if root folder or parent already processed
+                if (parentId == null || parentId.isEmpty() || parentId in processedIds) {
+                    val folderName = folderJson.getString("name")
+                    val folderPath = folderJson.optString("path", "/$folderName")
+
+                    // Get mapped parent ID
+                    val mappedParentId = if (parentId != null && parentId.isNotEmpty())
+                        folderMap[parentId] else null
+
+                    // Check if folder already exists
+                    val existingFolders = folderRepository.getAllFoldersSync()
+                    val existingFolder = existingFolders.find {
+                        it.name == folderName && it.parentId == mappedParentId
+                    }
+
+                    if (existingFolder != null) {
+                        // Use existing folder
+                        folderMap[originalId] = existingFolder.id
+                    } else {
+                        // Create new folder
+                        val newFolder = folderRepository.createFolder(folderName, mappedParentId)
+                        folderMap[originalId] = newFolder.id
+                    }
+
+                    processedIds.add(originalId)
+                    processedAny = true
+                }
+            }
+
+            // If we didn't process any folders in this iteration, we might have circular dependencies
+            if (!processedAny && processedIds.size < originalIdToFolder.size) {
+                android.util.Log.w("SyncManager", "Possible circular folder references - forcing processing")
+
+                // Force process a remaining folder
+                val remainingId = originalIdToFolder.keys.first { it !in processedIds }
+                val folderJson = originalIdToFolder[remainingId]!!
+
+                val folderName = folderJson.getString("name")
+                // Create as root folder
+                val newFolder = folderRepository.createFolder(folderName, null)
+                folderMap[remainingId] = newFolder.id
+                processedIds.add(remainingId)
+            }
+        }
+    }
+
+    /**
      * Helper method to associate a note with its notebooks
      */
     private suspend fun associateNoteWithNotebooks(
         noteId: String,
         notebookTitles: List<String>,
-        notebookMap: MutableMap<String, String>
+        notebookMap: MutableMap<String, String>,
+        folderMap: MutableMap<String, String>
     ) {
         for (title in notebookTitles) {
             // Get or create notebook
@@ -375,7 +464,14 @@ class SyncManager(
                 } else {
                     // Create new notebook
                     android.util.Log.d("SyncManager", "Creating new notebook: $title")
-                    val notebook = notebookRepository.createNotebook(title)
+                    // Try to find a folder with the same name to associate with
+                    val folders = folderRepository.getAllFoldersSync()
+                    val matchingFolder = folders.find { it.name == title }
+
+                    val notebook = notebookRepository.createNotebook(
+                        title = title,
+                        folderId = matchingFolder?.id
+                    )
                     notebook.id
                 }
             }
@@ -453,10 +549,22 @@ class SyncManager(
         val notebooks = pageNotebookRepository.getNotebooksContainingPageSync(note.id)
         val notebookTitles = notebooks.map { it.title }
 
-        android.util.Log.d("SyncManager", "Uploading note ${note.id} with ${strokes.size} strokes to notebooks: ${notebookTitles.joinToString()}")
+        // Get folder structure
+        val folderData = mutableListOf<Map<String, String>>()
+
+        // For each notebook, get its folder info if it has one
+        for (notebook in notebooks) {
+            if (notebook.folderId != null) {
+                collectFolderHierarchy(notebook.folderId!!, folderData)
+            }
+        }
+
+        android.util.Log.d("SyncManager", "Uploading note ${note.id} with ${strokes.size} strokes")
+        android.util.Log.d("SyncManager", "Notebooks: ${notebookTitles.joinToString()}")
+        android.util.Log.d("SyncManager", "Folders: ${folderData.size} in structure")
 
         // Serialize note and strokes
-        val noteData = NoteSerializer.serialize(note, strokes, notebookTitles)
+        val noteData = NoteSerializer.serialize(note, strokes, notebookTitles, folderData)
 
         // Check if note already exists on Drive
         val existingFile = driveServiceWrapper.findNoteFile(note.id)
@@ -471,6 +579,35 @@ class SyncManager(
 
         // Update metadata
         updateSyncMetadata(note)
+    }
+
+    /**
+     * Collects the entire folder hierarchy for a folder
+     */
+    private suspend fun collectFolderHierarchy(
+        folderId: String,
+        folderData: MutableList<Map<String, String>>
+    ) {
+        val folder = folderRepository.getFolderById(folderId) ?: return
+
+        // Add this folder to the data
+        folderData.add(
+            mapOf(
+                "id" to folder.id,
+                "name" to folder.name,
+                "path" to folder.path,
+                "parentId" to (folder.parentId ?: "")
+            )
+        )
+
+        // If this folder has a parent, recursively add it too
+        if (folder.parentId != null) {
+            // Check if we already added this parent to avoid infinite recursion
+            val alreadyAdded = folderData.any { it["id"] == folder.parentId }
+            if (!alreadyAdded) {
+                collectFolderHierarchy(folder.parentId!!, folderData)
+            }
+        }
     }
 
     /**

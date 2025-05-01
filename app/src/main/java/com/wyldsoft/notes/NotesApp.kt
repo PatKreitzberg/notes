@@ -99,7 +99,8 @@ class NotesApp : Application(), Configuration.Provider {
             notebookRepository,
             pageNotebookRepository,
             driveServiceWrapper,
-            applicationScope
+            applicationScope,
+            folderRepository
         )
     }
 

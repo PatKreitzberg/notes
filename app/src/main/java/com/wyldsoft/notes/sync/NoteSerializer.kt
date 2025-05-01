@@ -17,7 +17,12 @@ object NoteSerializer {
     /**
      * Serializes a note and its strokes to JSON
      */
-    fun serialize(note: NoteEntity, strokes: List<Stroke>, notebookTitles: List<String> = emptyList()): String {
+    fun serialize(
+        note: NoteEntity,
+        strokes: List<Stroke>,
+        notebookTitles: List<String> = emptyList(),
+        folderData: List<Map<String, String>> = emptyList()
+    ): String {
         val json = JSONObject()
 
         // Note metadata
@@ -36,6 +41,20 @@ object NoteSerializer {
                 notebooksArray.put(title)
             }
             json.put("notebooks", notebooksArray)
+        }
+
+        // Include folder structure information
+        if (folderData.isNotEmpty()) {
+            val foldersArray = JSONArray()
+            for (folder in folderData) {
+                val folderJson = JSONObject()
+                folderJson.put("id", folder["id"])
+                folderJson.put("name", folder["name"])
+                folderJson.put("path", folder["path"])
+                folderJson.put("parentId", folder["parentId"] ?: JSONObject.NULL)
+                foldersArray.put(folderJson)
+            }
+            json.put("folders", foldersArray)
         }
 
         // Serialize strokes

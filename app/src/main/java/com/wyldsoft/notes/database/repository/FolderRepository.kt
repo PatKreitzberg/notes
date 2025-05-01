@@ -8,6 +8,9 @@ import java.util.Date
 import java.util.UUID
 
 class FolderRepository(private val folderDao: FolderDao) {
+    suspend fun getAllFoldersSync(): List<FolderEntity> {
+        return folderDao.getAllFoldersSync()
+    }
 
     fun getRootFolders(): Flow<List<FolderEntity>> {
         return folderDao.getRootFolders()
