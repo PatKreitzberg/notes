@@ -39,7 +39,6 @@ import java.util.Locale
 
 @ExperimentalFoundationApi
 @Composable
-
 fun HomeView(
     navController: NavController,
     initialFolderId: String? = null,
@@ -157,6 +156,12 @@ fun HomeView(
         )
     }
 
+
+//    pageNotebookRepository.removePageFromNotebook(
+//        noteEntity.id,
+//        selectedNotebookId!!
+//    )
+
     // Delete confirmation dialog
     if (showDeleteConfirmDialog && itemToDelete != null) {
         val itemType = when (itemToDelete) {
@@ -164,84 +169,6 @@ fun HomeView(
             is NotebookEntity -> "notebook"
             is NoteEntity -> "page"
             else -> "item"
-        }
-
-        // For pages, check if they're in multiple notebooks
-        // For pages, check if they're in multiple notebooks
-        if (itemToDelete is NoteEntity && selectedNotebookId != null) {
-            var notebookCount by remember { mutableStateOf(0) }
-            var showMultipleNotebooksDialog by remember { mutableStateOf(false) }
-
-            // Get notebook count for this page
-            LaunchedEffect(itemToDelete) {
-                // Safe cast with "as?" and null check
-                val noteEntity = itemToDelete as? NoteEntity
-                if (noteEntity != null) {
-                    notebookCount = pageNotebookRepository.getNotebookCountForPage(noteEntity.id)
-                    if (notebookCount > 1) {
-                        showMultipleNotebooksDialog = true
-                        showDeleteConfirmDialog = false
-                    }
-                }
-            }
-
-            // Show special dialog for pages in multiple notebooks
-            if (showMultipleNotebooksDialog) {
-                AlertDialog(
-                    onDismissRequest = {
-                        showMultipleNotebooksDialog = false
-                        itemToDelete = null
-                    },
-                    title = { Text("Page in Multiple Notebooks") },
-                    text = { Text("This page is in $notebookCount notebooks. What would you like to do?") },
-                    buttons = {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        // Safe cast with "as?" and null check
-                                        val noteEntity = itemToDelete as? NoteEntity
-                                        if (noteEntity != null) {
-                                            // Remove only from current notebook
-                                            pageNotebookRepository.removePageFromNotebook(
-                                                noteEntity.id,
-                                                selectedNotebookId!!
-                                            )
-                                        }
-                                    }
-                                    showMultipleNotebooksDialog = false
-                                    itemToDelete = null
-                                }
-                            ) {
-                                Text("Remove from this notebook only")
-                            }
-
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        // Safe cast with "as?" and null check
-                                        val noteEntity = itemToDelete as? NoteEntity
-                                        if (noteEntity != null) {
-                                            // Delete page completely
-                                            noteRepository.deleteNote(noteEntity.id)
-                                        }
-                                    }
-                                    showMultipleNotebooksDialog = false
-                                    itemToDelete = null
-                                },
-                                colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.error)
-                            ) {
-                                Text("Delete from all notebooks")
-                            }
-                        }
-                    }
-                )
-            }
         }
 
         AlertDialog(
@@ -259,16 +186,18 @@ fun HomeView(
                                 is FolderEntity -> folderRepository.deleteFolder(item.id)
                                 is NotebookEntity -> notebookRepository.deleteNotebook(item.id)
                                 is NoteEntity -> {
-                                    // Check if page is in multiple notebooks
-                                    val notebooks = pageNotebookRepository.getNotebooksContainingPage(item.id).first()
-                                    if (notebooks.size > 1) {
-                                        // Show another dialog asking if they want to delete from all or just this one
-                                        // For simplicity, we'll just remove from current notebook for now
-                                        if (selectedNotebookId != null) {
+                                    if (selectedNotebookId != null) {
+                                        // Check if page is in multiple notebooks
+                                        val notebookCount = pageNotebookRepository.getNotebookCountForPage(item.id)
+                                        if (notebookCount > 1) {
+                                            // Only remove from current notebook
                                             pageNotebookRepository.removePageFromNotebook(item.id, selectedNotebookId!!)
+                                        } else {
+                                            // Delete the page completely
+                                            noteRepository.deleteNote(item.id)
                                         }
                                     } else {
-                                        // Delete the page completely
+                                        // No notebook context, just delete the page
                                         noteRepository.deleteNote(item.id)
                                     }
                                 }
@@ -289,6 +218,81 @@ fun HomeView(
                     }
                 ) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+// Optional: Separate dialog for pages in multiple notebooks
+    var showMultipleNotebooksDialog by remember { mutableStateOf(false) }
+    var noteToHandle by remember { mutableStateOf<NoteEntity?>(null) }
+    var notebookCount by remember { mutableStateOf(0) }
+
+// Check for pages in multiple notebooks
+    LaunchedEffect(itemToDelete) {
+        if (itemToDelete is NoteEntity && selectedNotebookId != null) {
+            val count = pageNotebookRepository.getNotebookCountForPage((itemToDelete as NoteEntity).id)
+            if (count > 1) {
+                notebookCount = count
+                noteToHandle = itemToDelete as NoteEntity
+                showMultipleNotebooksDialog = true
+                showDeleteConfirmDialog = false
+                itemToDelete = null
+            }
+        }
+    }
+
+// Show special dialog for pages in multiple notebooks
+    if (showMultipleNotebooksDialog && noteToHandle != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showMultipleNotebooksDialog = false
+                noteToHandle = null
+            },
+            title = { Text("Page in Multiple Notebooks") },
+            text = { Text("This page is in $notebookCount notebooks. What would you like to do?") },
+            buttons = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val note = noteToHandle
+                                if (note != null && selectedNotebookId != null) {
+                                    // Remove only from current notebook
+                                    pageNotebookRepository.removePageFromNotebook(
+                                        note.id,
+                                        selectedNotebookId!!
+                                    )
+                                }
+                            }
+                            showMultipleNotebooksDialog = false
+                            noteToHandle = null
+                        }
+                    ) {
+                        Text("Remove from this notebook only")
+                    }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val note = noteToHandle
+                                if (note != null) {
+                                    // Delete page completely
+                                    noteRepository.deleteNote(note.id)
+                                }
+                            }
+                            showMultipleNotebooksDialog = false
+                            noteToHandle = null
+                        },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.error)
+                    ) {
+                        Text("Delete from all notebooks")
+                    }
                 }
             }
         )

@@ -218,10 +218,10 @@ class SyncManager(
 
             try {
                 // Skip files that don't look like notes (based on naming convention)
-                if (!fileInfo.name.contains("_") || !fileInfo.name.endsWith(".json")) {
-                    android.util.Log.d("SyncManager", "Skipping non-note file: ${fileInfo.name}")
-                    continue
-                }
+//                if (!fileInfo.name.contains("_") || !fileInfo.name.endsWith(".json")) {
+//                    android.util.Log.d("SyncManager", "Skipping non-note file: ${fileInfo.name}")
+//                    continue
+//                }
 
                 // Download file
                 val fileContent = driveServiceWrapper.downloadFile(fileInfo.id)
