@@ -156,15 +156,11 @@ fun HomeView(
         )
     }
 
-
-//    pageNotebookRepository.removePageFromNotebook(
-//        noteEntity.id,
-//        selectedNotebookId!!
-//    )
-
     // Delete confirmation dialog
     if (showDeleteConfirmDialog && itemToDelete != null) {
-        val itemType = when (itemToDelete) {
+        // Capture the current itemToDelete in a local val
+        val currentItemToDelete = itemToDelete
+        val itemType = when (currentItemToDelete) {
             is FolderEntity -> "folder"
             is NotebookEntity -> "notebook"
             is NoteEntity -> "page"
@@ -182,7 +178,7 @@ fun HomeView(
                 Button(
                     onClick = {
                         scope.launch {
-                            when (val item = itemToDelete) {
+                            when (val item = currentItemToDelete) {  // Use captured value here
                                 is FolderEntity -> folderRepository.deleteFolder(item.id)
                                 is NotebookEntity -> notebookRepository.deleteNotebook(item.id)
                                 is NoteEntity -> {
@@ -223,12 +219,12 @@ fun HomeView(
         )
     }
 
-// Optional: Separate dialog for pages in multiple notebooks
+    // Optional: Separate dialog for pages in multiple notebooks
     var showMultipleNotebooksDialog by remember { mutableStateOf(false) }
     var noteToHandle by remember { mutableStateOf<NoteEntity?>(null) }
     var notebookCount by remember { mutableStateOf(0) }
 
-// Check for pages in multiple notebooks
+    // Check for pages in multiple notebooks
     LaunchedEffect(itemToDelete) {
         if (itemToDelete is NoteEntity && selectedNotebookId != null) {
             val count = pageNotebookRepository.getNotebookCountForPage((itemToDelete as NoteEntity).id)
@@ -242,8 +238,9 @@ fun HomeView(
         }
     }
 
-// Show special dialog for pages in multiple notebooks
+    // Show special dialog for pages in multiple notebooks
     if (showMultipleNotebooksDialog && noteToHandle != null) {
+        val note = noteToHandle
         AlertDialog(
             onDismissRequest = {
                 showMultipleNotebooksDialog = false
@@ -261,7 +258,6 @@ fun HomeView(
                     Button(
                         onClick = {
                             scope.launch {
-                                val note = noteToHandle
                                 if (note != null && selectedNotebookId != null) {
                                     // Remove only from current notebook
                                     pageNotebookRepository.removePageFromNotebook(
@@ -280,7 +276,6 @@ fun HomeView(
                     Button(
                         onClick = {
                             scope.launch {
-                                val note = noteToHandle
                                 if (note != null) {
                                     // Delete page completely
                                     noteRepository.deleteNote(note.id)
