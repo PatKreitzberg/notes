@@ -1,6 +1,7 @@
 package com.wyldsoft.notes.components
 
 import android.graphics.Color
+import android.graphics.Rect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,16 +38,13 @@ import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.templates.TemplateRenderer
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.SelectAll
 import com.wyldsoft.notes.selection.SelectionHandler
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.Text  // Add this import for Text component
-import androidx.compose.ui.geometry.Offset  // Make sure this is imported for moveOffset
+import com.wyldsoft.notes.dialog.SettingsDialog
+import com.wyldsoft.notes.utils.ExcludeRects
 
 
 @Composable
@@ -62,7 +60,6 @@ fun Toolbar(
     val scope = rememberCoroutineScope()
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-    var showBackupDialog by remember { mutableStateOf(false) }
 
     fun handleSelection() {
         state.mode = Mode.Selection
@@ -76,6 +73,9 @@ fun Toolbar(
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
             isStrokeSelectionOpen = true
+            state.stateExcludeRects[ExcludeRects.StrokeOptions] = Rect(0, 0, 100, 50)
+
+            println("state.stateExcludeRects size: ${state.stateExcludeRects.size}")
         } else {
             state.mode = Mode.Draw
             state.pen = pen
@@ -85,6 +85,7 @@ fun Toolbar(
     // Expose the stroke selection state to the DrawCanvas
     LaunchedEffect(isStrokeSelectionOpen) {
         // Notify the DrawingManager about panel state changes
+        println("LauncedEffect isStrokeSelectionOpen $isStrokeSelectionOpen")
         com.wyldsoft.notes.classes.drawing.DrawingManager.isStrokeOptionsOpen.emit(isStrokeSelectionOpen)
     }
 
@@ -220,7 +221,7 @@ fun Toolbar(
                 // Settings button
                 SettingsButton(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    onClick = { showSettings = true }
+                    onClick = { showSettings = true; state.allowDrawingOnCanvas = false; println("DISAllow draing") }
                 )
 
                 // Show settings dialog if needed
@@ -241,7 +242,7 @@ fun Toolbar(
                             }
                         },
                         onUpdateNoteName = onUpdateNoteName,
-                        onDismiss = { showSettings = false }
+                        onDismiss = { showSettings = false; state.allowDrawingOnCanvas = true; println("Allow drawing") }
                     )
                 }
             }

@@ -57,7 +57,7 @@ fun StrokeOptionPanel(
         // Pen name and preview
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            //modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = "${getPenDisplayName(currentPenName)} Options",

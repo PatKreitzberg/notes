@@ -1,5 +1,5 @@
 // app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
-package com.wyldsoft.notes.components
+package com.wyldsoft.notes.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,9 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
-import com.wyldsoft.notes.database.entity.NotebookEntity
 import com.wyldsoft.notes.settings.PaperSize
-import com.wyldsoft.notes.settings.SettingsModel
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.settings.TemplateType
 import kotlinx.coroutines.launch

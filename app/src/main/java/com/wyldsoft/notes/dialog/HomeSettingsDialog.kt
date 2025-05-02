@@ -1,5 +1,5 @@
 // app/src/main/java/com/wyldsoft/notes/components/HomeSettingsDialog.kt (updated)
-package com.wyldsoft.notes.components
+package com.wyldsoft.notes.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
-import com.wyldsoft.notes.backup.rememberBackupManager
+import com.wyldsoft.notes.components.BackupSettingsDialog
 
 @Composable
 fun HomeSettingsDialog(

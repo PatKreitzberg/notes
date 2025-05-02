@@ -100,19 +100,19 @@ class TouchEventHandler(
     fun setupTouchInterception() {
         println("DEBUG: Setting up touch interception")
         surfaceView.setOnTouchListener { _, event ->
-            // If we're in drawing or erasing mode and already processing inputs, don't interrupt
             if (DrawingManager.drawingInProgress.isLocked || currentlyErasing) {
+                // If we're in drawing or erasing mode and already processing inputs, don't interrupt
                 return@setOnTouchListener false
             }
 
-            // Handle selection mode first - it has priority for stylus events
             if (state.mode == Mode.Selection && isStylusEvent(event)) {
+                // Handle selection mode first - it has priority for stylus events
                 selectionHandler.handleTouchEvent(event.action, event.x, event.y)
                 return@setOnTouchListener true
             }
 
-            // For other modes, let the normal handling continue
             if (isStylusEvent(event)) {
+                // For other modes, let the normal handling continue
                 return@setOnTouchListener false
             }
 
@@ -120,14 +120,6 @@ class TouchEventHandler(
             val consumed = scrollTracker.processTouchEvent(event)
             if (!consumed) {
                 return@setOnTouchListener gestureDetector.processTouchEvent(event)
-            }
-
-            // Update observer as before
-            coroutineScope.launch {
-                DrawingManager.isStrokeOptionsOpen.collect { isOpen ->
-                    isStrokeOptionsPanelOpen = isOpen
-                    updateActiveSurface()
-                }
             }
 
             return@setOnTouchListener consumed
@@ -140,24 +132,24 @@ class TouchEventHandler(
 
     private val inputCallback: RawInputCallback = object : RawInputCallback() {
         override fun onBeginRawDrawing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {
-            println("DEBUG: onBeginRawDrawing called")
+            //println("DEBUG: onBeginRawDrawing called")
         }
 
         override fun onEndRawDrawing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {
-            println("DEBUG: onEndRawDrawing called")
+            //println("DEBUG: onEndRawDrawing called")
         }
 
         override fun onRawDrawingTouchPointMoveReceived(p0: com.onyx.android.sdk.data.note.TouchPoint?) {
-            println("DEBUG: onRawDrawingTouchPointMoveReceived called")
+            //println("DEBUG: onRawDrawingTouchPointMoveReceived called")
         }
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) {
-            println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
+            //println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
             val points = plist
 
             // Now use the adjusted touch points for drawing operations
             if (state.mode == Mode.Draw) {
-                println("DEBUG: Processing touch for DRAW mode")
+                //println("DEBUG: Processing touch for DRAW mode")
                 coroutineScope.launch(Dispatchers.Main.immediate) {
                     if (lockDrawingWithTimeout()) {
                         try {
@@ -167,7 +159,7 @@ class TouchEventHandler(
                                 state.pen,
                                 points.points
                             )
-                            println("DEBUG: handleDraw completed")
+                            //println("DEBUG: handleDraw completed")
 
                             // Ensure we render the result immediately
                             canvasRenderer.drawCanvasToView()
@@ -175,12 +167,12 @@ class TouchEventHandler(
                             DrawingManager.drawingInProgress.unlock()
                         }
                     } else {
-                        println("DEBUG: Could not acquire drawing lock, skipping stroke")
+                        //println("DEBUG: Could not acquire drawing lock, skipping stroke")
                     }
                 }
             } else thread {
                 if (state.mode == Mode.Erase) {
-                    println("DEBUG: Processing touch for ERASE mode")
+                    //println("DEBUG: Processing touch for ERASE mode")
 
                     val erasePoints = plist.points.map { SimplePointF(it.x, it.y) }
                     drawingManager.handleErase(
@@ -282,15 +274,13 @@ class TouchEventHandler(
         // Set exclude rect for toolbar + options panel if open
         val topExcludeRect = Rect(0, 0, surfaceView.width, topExclusionHeight)
 
-        // Set exclude rect for toolbar
-        // val toolbarExcludeRect = Rect(0, 0, surfaceView.width, exclusionHeight)
-
         // Create a list of exclusion zones if pagination is enabled
         val excludeRects = mutableListOf(topExcludeRect)
 
         println("exclusion paginationManager.isPaginationEnabled=${paginationManager.isPaginationEnabled}")
+
         // Add pagination exclusion zones if enabled
-        if (paginationManager.isPaginationEnabled) {
+        if (state.allowDrawingOnCanvas && paginationManager.isPaginationEnabled) {
             val viewportTop = viewportTransformer.scrollY
             val viewportHeight = surfaceView.height.toFloat()
 
@@ -317,6 +307,11 @@ class TouchEventHandler(
                     )
                 }
             }
+        }
+
+        if (!state.allowDrawingOnCanvas) {
+            println("Excluding everything")
+            excludeRects.add(Rect(0, 0, surfaceView.width, surfaceView.height))
         }
 
         touchHelper.setLimitRect(

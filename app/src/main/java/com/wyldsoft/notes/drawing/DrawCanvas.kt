@@ -252,6 +252,23 @@ class DrawCanvas(
             }
         }
 
+        // observe allowDrawingOnCanvas. change when settigns may open and close
+        coroutineScope.launch {
+            snapshotFlow { state.allowDrawingOnCanvas }.drop(1).collect {
+                println("allowDrawingOnCanvas change: ${state.allowDrawingOnCanvas}")
+                touchEventHandler.updateActiveSurface()
+            }
+        }
+
+        // update active surface when exclude rect is added or removed
+        coroutineScope.launch {
+            snapshotFlow { state.stateExcludeRects }.drop(1).collect {
+                println("stateExcludeRects change: ${state.stateExcludeRects}")
+                //touchEventHandler.updateActiveSurface()
+            }
+        }
+
+
         // observe mode
         coroutineScope.launch {
             snapshotFlow { state.mode }.drop(1).collect {
@@ -325,6 +342,7 @@ class DrawCanvas(
         } else {
             // Check if drawing is completed
             waitForDrawing()
+
             // Draw to view, before showing drawing, avoid stutter
             drawCanvasToView()
             touchEventHandler.setRawDrawingEnabled(false)

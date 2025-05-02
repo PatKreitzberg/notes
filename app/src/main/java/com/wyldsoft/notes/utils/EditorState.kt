@@ -12,6 +12,10 @@ import android.graphics.Path
 import androidx.compose.runtime.mutableStateListOf
 import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.mutableStateMapOf
+
+
+
 
 enum class Mode {
     Draw, Erase, Selection
@@ -21,6 +25,7 @@ enum class PlacementMode {
     Move,
     Paste
 }
+
 
 class SelectionState {
     // Existing properties for general selection
@@ -60,12 +65,27 @@ class SelectionState {
     }
 }
 
+// Add or update a rect
+// editorState.rectMapStateFlow[RectType.TOOLBAR] = Rect(0, 0, 100, 50)
+
+// Remove a rect
+// editorState.rectMapStateFlow.remove(RectType.SELECTION)
+
+// Clear all rects
+// editorState.rectMapStateFlow.clear()
+
+enum class ExcludeRects {
+    StrokeOptions
+}
+
 class EditorState(val pageId: String, val pageView: PageView) {
     var mode by mutableStateOf(Mode.Draw)
     var pen by mutableStateOf(Pen.BALLPEN)
     var eraser by mutableStateOf(Eraser.PEN)
     var isDrawing by mutableStateOf(true)
     var isToolbarOpen by mutableStateOf(false)
+    var allowDrawingOnCanvas by mutableStateOf(true)
+    val stateExcludeRects = mutableStateMapOf<ExcludeRects, Rect>()
 
     var penSettings by mutableStateOf(
         mapOf(
