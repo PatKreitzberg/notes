@@ -170,6 +170,19 @@ class DrawCanvas(
 
 
     fun registerObservers() {
+        coroutineScope.launch {
+            DrawingManager.isDrawing.collect {
+                println("Drawing state changed!")
+                state.isDrawing = it
+
+                // Close stroke options panel when drawing starts
+                if (it) {
+                    // Emit event to close stroke options
+                    DrawingManager.isStrokeOptionsOpen.emit(false)
+                }
+            }
+        }
+
         // observe forceUpdate
         coroutineScope.launch {
             DrawingManager.forceUpdate.collect { zoneAffected ->
@@ -262,9 +275,11 @@ class DrawCanvas(
 
         // update active surface when exclude rect is added or removed
         coroutineScope.launch {
-            snapshotFlow { state.stateExcludeRects }.drop(1).collect {
+            snapshotFlow { state.stateExcludeRectsModified }.collect{ //drop(1).collect {
                 println("stateExcludeRects change: ${state.stateExcludeRects}")
-                //touchEventHandler.updateActiveSurface()
+                if (state.stateExcludeRectsModified) {
+                    touchEventHandler.updateActiveSurface()
+                }
             }
         }
 

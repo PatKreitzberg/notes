@@ -1,22 +1,24 @@
 // app/src/main/java/com/wyldsoft/notes/components/StrokeOptionPanel.kt
 package com.wyldsoft.notes.components
 
+import android.graphics.Rect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Slider
 import androidx.compose.material.SliderDefaults
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyldsoft.notes.utils.PenSetting
@@ -35,7 +39,8 @@ fun StrokeOptionPanel(
     currentPenName: String,
     currentSetting: PenSetting,
     onSettingChanged: (PenSetting) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onPanelPositioned: (Rect) -> Unit = {}
 ) {
     var strokeSize by remember { mutableStateOf(currentSetting.strokeSize) }
     var selectedColor by remember { mutableStateOf(currentSetting.color) }
@@ -48,21 +53,47 @@ fun StrokeOptionPanel(
         else -> 20f
     }
 
+    // Apply settings when component is disposed (panel closed)
+    DisposableEffect(Unit) {
+        onDispose {
+            onSettingChanged(PenSetting(strokeSize, selectedColor))
+        }
+    }
+
+    // Calculate the width of a color row (4 buttons of 40.dp each with 4.dp padding on each side)
+    // 4 * (40 + 8) = 192.dp for the color buttons
+    val colorRowWidth = 192.dp
+
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .wrapContentWidth() // Use wrap content instead of fillMaxWidth
             .background(Color.White)
             .padding(16.dp)
+            .onGloballyPositioned { coordinates ->
+                // Here, we return the rect that covers the panel so we can exclude it from drawable area
+                // Report the height to the parent
+                val boundingRect = coordinates.boundsInWindow()
+
+                // Convert to Android Rect (from Compose Rect)
+                val panelRect = Rect(
+                    boundingRect.left.toInt(),
+                    boundingRect.top.toInt(),
+                    boundingRect.right.toInt(),
+                    boundingRect.bottom.toInt()
+                )
+
+                // Report the rect to the parent
+                onPanelPositioned(panelRect)
+            }
     ) {
-        // Pen name and preview
+        // Pen name and preview - simplified header without "Done" text
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            //modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = "${getPenDisplayName(currentPenName)} Options",
                 fontSize = 18.sp,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.padding(end = 16.dp)
             )
 
             // Stroke preview
@@ -72,35 +103,24 @@ fun StrokeOptionPanel(
                     .clip(CircleShape)
                     .background(Color(selectedColor))
             )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Dismiss button
-            Text(
-                text = "Done",
-                color = Color.Blue,
-                modifier = Modifier.noRippleClickable {
-                    // Apply changes
-                    onSettingChanged(PenSetting(strokeSize, selectedColor))
-                    onDismiss()
-                }
-            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Stroke size slider
+        // Stroke size slider with fixed width to match color rows
         Text(text = "Stroke Size: ${strokeSize.toInt()}")
-        Slider(
-            value = strokeSize,
-            onValueChange = { strokeSize = it },
-            valueRange = 1f..maxStrokeSize,
-            steps = 0,
-            colors = SliderDefaults.colors(
-                thumbColor = Color(selectedColor),
-                activeTrackColor = Color(selectedColor).copy(alpha = 0.6f)
+        Box(modifier = Modifier.width(colorRowWidth)) {
+            Slider(
+                value = strokeSize,
+                onValueChange = { strokeSize = it },
+                valueRange = 1f..maxStrokeSize,
+                steps = 0,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(selectedColor),
+                    activeTrackColor = Color(selectedColor).copy(alpha = 0.6f)
+                )
             )
-        )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -109,9 +129,7 @@ fun StrokeOptionPanel(
         Spacer(modifier = Modifier.height(8.dp))
 
         // First row of colors
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Row {
             ColorButton(
                 color = Color.Black,
                 isSelected = selectedColor == android.graphics.Color.BLACK,
@@ -144,9 +162,7 @@ fun StrokeOptionPanel(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Second row of colors
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Row {
             ColorButton(
                 color = Color.Red,
                 isSelected = selectedColor == android.graphics.Color.RED,
@@ -179,9 +195,7 @@ fun StrokeOptionPanel(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Third row of colors
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Row {
             ColorButton(
                 color = Color(0xFFFF69B4), // Pink
                 isSelected = selectedColor == 0xFFFF69B4.toInt(),

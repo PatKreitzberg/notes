@@ -42,9 +42,10 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.SelectAll
 import com.wyldsoft.notes.selection.SelectionHandler
-import androidx.compose.material.Text  // Add this import for Text component
+import androidx.compose.material.Text
 import com.wyldsoft.notes.dialog.SettingsDialog
 import com.wyldsoft.notes.utils.ExcludeRects
+import com.wyldsoft.notes.utils.convertDpToPixel
 
 
 @Composable
@@ -60,6 +61,21 @@ fun Toolbar(
     val scope = rememberCoroutineScope()
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var strokePanelRect by remember { mutableStateOf<Rect?>(null) }
+    var haveStrokePanelRect by remember { mutableStateOf(false) }
+
+    fun removeStrokeOptionPanelRect() {
+        state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
+        isStrokeSelectionOpen = false
+        state.stateExcludeRectsModified = true
+    }
+
+    fun addStrokeOptionPanelRect() {
+        if (haveStrokePanelRect) {
+            state.stateExcludeRects[ExcludeRects.StrokeOptions] = strokePanelRect?: Rect(0, 0, 300, 500)
+            state.stateExcludeRectsModified = true
+        }
+    }
 
     fun handleSelection() {
         state.mode = Mode.Selection
@@ -72,13 +88,32 @@ fun Toolbar(
 
     fun handleChangePen(pen: Pen) {
         if (state.mode == Mode.Draw && state.pen == pen) {
-            isStrokeSelectionOpen = true
-            state.stateExcludeRects[ExcludeRects.StrokeOptions] = Rect(0, 0, 100, 50)
+            // Toggle stroke options panel if clicking the same pen button
+            isStrokeSelectionOpen = !isStrokeSelectionOpen
 
-            println("state.stateExcludeRects size: ${state.stateExcludeRects.size}")
+            if (isStrokeSelectionOpen) {
+                addStrokeOptionPanelRect()
+            } else {
+                removeStrokeOptionPanelRect()
+            }
         } else {
+            // Selected a different pen - close options and switch
+            if (isStrokeSelectionOpen) {
+                removeStrokeOptionPanelRect()
+            }
             state.mode = Mode.Draw
             state.pen = pen
+        }
+    }
+
+
+    LaunchedEffect(Unit) {
+        DrawingManager.isDrawing.collect {
+            if (it && isStrokeSelectionOpen) {
+                // Close options panel when drawing starts
+                isStrokeSelectionOpen = false
+                state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
+            }
         }
     }
 
@@ -87,6 +122,12 @@ fun Toolbar(
         // Notify the DrawingManager about panel state changes
         println("LauncedEffect isStrokeSelectionOpen $isStrokeSelectionOpen")
         com.wyldsoft.notes.classes.drawing.DrawingManager.isStrokeOptionsOpen.emit(isStrokeSelectionOpen)
+
+        // Remove the rect when panel is closed
+        if (!isStrokeSelectionOpen) {
+            removeStrokeOptionPanelRect()
+            println("DEBUG: Removed StrokeOptions exclusion rect")
+        }
     }
 
     fun onChangeStrokeSetting(penName: String, setting: PenSetting) {
@@ -108,6 +149,11 @@ fun Toolbar(
                 ToolbarButton(
                     onSelect = {
                         state.isToolbarOpen = !state.isToolbarOpen
+
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
                     },
                     imageVector = Icons.Default.VisibilityOff,
                     contentDescription = "close toolbar"
@@ -156,7 +202,13 @@ fun Toolbar(
 
                 // Eraser button
                 ToolbarButton(
-                    onSelect = { handleEraser() },
+                    onSelect = {
+                        handleEraser()
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
+                    },
                     imageVector = Icons.Default.Delete,
                     isSelected = state.mode == Mode.Erase,
                     contentDescription = "Eraser"
@@ -179,7 +231,13 @@ fun Toolbar(
 
                 // Selection button
                 ToolbarButton(
-                    onSelect = { handleSelection() },
+                    onSelect = {
+                        handleSelection()
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
+                    },
                     imageVector = Icons.Default.SelectAll,
                     isSelected = state.mode == Mode.Selection,
                     contentDescription = "Selection Tool"
@@ -196,6 +254,10 @@ fun Toolbar(
                 ToolbarButton(
                     onSelect = {
                         // No functionality yet
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
                     },
                     imageVector = Icons.Default.Undo,
                     contentDescription = "Undo"
@@ -204,7 +266,11 @@ fun Toolbar(
                 // Redo button (Placeholder - no history implemented yet)
                 ToolbarButton(
                     onSelect = {
-                        // No functionality yet
+                        // No real functionality yet
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
                     },
                     imageVector = Icons.Default.Redo,
                     contentDescription = "Redo"
@@ -221,7 +287,15 @@ fun Toolbar(
                 // Settings button
                 SettingsButton(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    onClick = { showSettings = true; state.allowDrawingOnCanvas = false; println("DISAllow draing") }
+                    onClick = {
+                        showSettings = true
+                        state.allowDrawingOnCanvas = false
+                        println("DISAllow draing")
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
+                    }
                 )
 
                 // Show settings dialog if needed
@@ -262,7 +336,18 @@ fun Toolbar(
                         settings[state.pen.penName] = newSetting
                         state.penSettings = settings
                     },
-                    onDismiss = { isStrokeSelectionOpen = false }
+                    onDismiss = {
+                        println("strokeOptionPanel onDismiss")
+                        removeStrokeOptionPanelRect()
+                    },
+                    onPanelPositioned = { rect ->
+                        if (rect != strokePanelRect) {
+                            strokePanelRect = rect
+                            haveStrokePanelRect = true
+                            addStrokeOptionPanelRect()
+                            println("ExclusionRects: Updated StrokeOptions exclusion rect: $rect")
+                        }
+                    }
                 )
             }
             if (state.mode == Mode.Selection && state.selectionState.selectedStrokes != null) {

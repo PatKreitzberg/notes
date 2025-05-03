@@ -254,7 +254,8 @@ class TouchEventHandler(
     }
 
     fun updateActiveSurface() {
-        println("Update editable surface")
+        println("Update editable surface is state.stateExcludeRects.size  ${state.stateExcludeRects.size} ")
+        state.stateExcludeRectsModified = false
         val toolbarHeight = if (state.isToolbarOpen) convertDpToPixel(40.dp, context).toInt() else 0
 
         // Calculate the height of the stroke options panel if it's open
@@ -276,6 +277,10 @@ class TouchEventHandler(
 
         // Create a list of exclusion zones if pagination is enabled
         val excludeRects = mutableListOf(topExcludeRect)
+        for ((key, rect) in state.stateExcludeRects) {
+            println("Adding exclusion rect for $key: $rect")
+            excludeRects.add(rect)
+        }
 
         println("exclusion paginationManager.isPaginationEnabled=${paginationManager.isPaginationEnabled}")
 
