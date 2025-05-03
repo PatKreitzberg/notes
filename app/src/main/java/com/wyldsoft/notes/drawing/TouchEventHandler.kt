@@ -343,9 +343,15 @@ class TouchEventHandler(
                     val strokeColor = state.penSettings[state.pen.penName]!!.color
 
                     println("DEBUG: Setting stroke style=$strokeStyle, width=$strokeWidth, color=$strokeColor")
+                    // Apply the settings to the touch helper
                     touchHelper.setStrokeStyle(strokeStyle)
                         ?.setStrokeWidth(strokeWidth)
                         ?.setStrokeColor(strokeColor)
+
+                    // Force a refresh to show the changes immediately
+                    coroutineScope.launch {
+                        DrawingManager.refreshUi.emit(Unit)
+                    }
                 }
                 Mode.Erase -> {
                     println("DEBUG: Mode is ERASE, eraser=${state.eraser}")

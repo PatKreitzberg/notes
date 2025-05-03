@@ -45,7 +45,10 @@ import com.wyldsoft.notes.selection.SelectionHandler
 import androidx.compose.material.Text
 import com.wyldsoft.notes.dialog.SettingsDialog
 import com.wyldsoft.notes.utils.ExcludeRects
-
+import android.graphics.drawable.VectorDrawable
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import com.wyldsoft.notes.R
 
 
 @Composable
@@ -63,6 +66,7 @@ fun Toolbar(
     var showSettings by remember { mutableStateOf(false) }
     var strokePanelRect by remember { mutableStateOf<Rect?>(null) }
     var haveStrokePanelRect by remember { mutableStateOf(false) }
+    val EraserIcon = ImageVector.vectorResource(R.drawable.eraser)
 
     fun removeStrokeOptionPanelRect() {
         state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
@@ -128,12 +132,6 @@ fun Toolbar(
             removeStrokeOptionPanelRect()
             println("DEBUG: Removed StrokeOptions exclusion rect")
         }
-    }
-
-    fun onChangeStrokeSetting(penName: String, setting: PenSetting) {
-        val settings = state.penSettings.toMutableMap()
-        settings[penName] = setting.copy()
-        state.penSettings = settings
     }
 
     if (state.isToolbarOpen) {
@@ -209,7 +207,7 @@ fun Toolbar(
                             removeStrokeOptionPanelRect()
                         }
                     },
-                    imageVector = Icons.Default.Delete,
+                    imageVector = ImageVector.vectorResource(id = R.drawable.eraser),
                     isSelected = state.mode == Mode.Erase,
                     contentDescription = "Eraser"
                 )

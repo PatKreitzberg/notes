@@ -19,6 +19,7 @@ import androidx.compose.material.SliderDefaults
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.utils.PenSetting
 import com.wyldsoft.notes.utils.noRippleClickable
 
@@ -53,12 +55,22 @@ fun StrokeOptionPanel(
         else -> 20f
     }
 
-    // Apply settings when component is disposed (panel closed)
+    // Apply settings immediately when they change
+    LaunchedEffect(strokeSize, selectedColor) {
+        // Update pen settings
+        onSettingChanged(PenSetting(strokeSize, selectedColor))
+
+        // Directly emit the style change event
+        DrawingManager.strokeStyleChanged.emit(Unit)
+    }
+
+    // Also apply settings when component is disposed (as a safety measure)
     DisposableEffect(Unit) {
         onDispose {
             onSettingChanged(PenSetting(strokeSize, selectedColor))
         }
     }
+
 
     // Calculate the width of a color row (4 buttons of 40.dp each with 4.dp padding on each side)
     // 4 * (40 + 8) = 192.dp for the color buttons

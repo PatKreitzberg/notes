@@ -22,6 +22,7 @@ class DrawingManager(private val page: PageView) {
         val restartAfterConfChange = MutableSharedFlow<Unit>()
         val drawingInProgress = Mutex()
         val isStrokeOptionsOpen = MutableSharedFlow<Boolean>()
+        val strokeStyleChanged = MutableSharedFlow<Unit>()
     }
     private val strokeHistoryBatch = mutableListOf<String>()
 
