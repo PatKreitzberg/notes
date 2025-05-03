@@ -45,7 +45,7 @@ import com.wyldsoft.notes.selection.SelectionHandler
 import androidx.compose.material.Text
 import com.wyldsoft.notes.dialog.SettingsDialog
 import com.wyldsoft.notes.utils.ExcludeRects
-import com.wyldsoft.notes.utils.convertDpToPixel
+
 
 
 @Composable
