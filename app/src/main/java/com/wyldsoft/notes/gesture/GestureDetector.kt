@@ -3,12 +3,13 @@ package com.wyldsoft.notes.gesture
 import android.content.Context
 import android.view.MotionEvent
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+
+import com.wyldsoft.notes.utils.convertDpToPixel
 
 /**
  * Detects and classifies touch gestures on the canvas.

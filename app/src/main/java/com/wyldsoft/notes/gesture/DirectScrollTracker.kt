@@ -1,4 +1,3 @@
-// app/src/main/java/com/wyldsoft/notes/gesture/DirectScrollTracker.kt
 package com.wyldsoft.notes.gesture
 
 import android.view.MotionEvent

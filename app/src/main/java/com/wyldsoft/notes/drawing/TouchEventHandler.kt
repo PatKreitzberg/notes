@@ -118,6 +118,7 @@ class TouchEventHandler(
 
             // Process with scroll tracker for direct scrolling
             val consumed = scrollTracker.processTouchEvent(event)
+
             if (!consumed) {
                 return@setOnTouchListener gestureDetector.processTouchEvent(event)
             }
