@@ -24,6 +24,8 @@ class DrawingGestureDetector(
     // Minimum distance required for a swipe gesture in dp
     private val SWIPE_THRESHOLD_DP = 50.dp
 
+
+
     // Minimum velocity required for a swipe gesture
     private val SWIPE_VELOCITY_THRESHOLD = 100
 
@@ -45,148 +47,149 @@ class DrawingGestureDetector(
     private var lastGestureEndTime = 0L
     private var tapCount = 0
     private var lastTapFingerCount = 0
+    private var countedFirstTap = false
 
     // Track whether we're currently in a scale gesture to avoid conflicting with other gestures
     private var isScaling = false
 
-    // Android's built-in gesture detector for basic gestures
-    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-        override fun onDown(e: MotionEvent): Boolean {
-            // Only handle single finger gestures with GestureDetector
-            // Multi-finger gestures will be handled separately
-            println("gesture: onDown")
-            if (e.pointerCount > 1 || isStylusEvent(e)) {
-                return false
-            }
-            return true
-        }
+//    // Android's built-in gesture detector for basic gestures
+//    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+//        override fun onDown(e: MotionEvent): Boolean {
+//            // Only handle single finger gestures with GestureDetector
+//            // Multi-finger gestures will be handled separately
+//            println("gesture: onDown")
+//            if (e.pointerCount > 1 || isStylusEvent(e)) {
+//                return false
+//            }
+//            return true
+//        }
+//
+//        override fun onDoubleTap(e: MotionEvent): Boolean {
+//            println("gesture: onDoubleTap")
+//            // Ignore stylus inputs
+//            if (isStylusEvent(e)) {
+//                return false
+//            }
+//
+//            // Don't trigger double tap during scaling
+//            if (isScaling) {
+//                return false
+//            }
+//
+//            // Only handle single finger double taps with GestureDetector
+//            if (e.pointerCount == 1) {
+//                onGestureDetected("Double tap detected")
+//                return true
+//            }
+//            return false
+//        }
+//
+//        override fun onFling(
+//            e1: MotionEvent?,
+//            e2: MotionEvent,
+//            velocityX: Float,
+//            velocityY: Float
+//        ): Boolean {
+//            println("gesture: onFling")
+//            if (e1 == null) return false
+//
+//            // Ignore stylus inputs
+//            if (isStylusEvent(e1) || isStylusEvent(e2)) {
+//                return false
+//            }
+//
+//            // Don't trigger fling during scaling
+//            if (isScaling) {
+//                return false
+//            }
+//
+//            val diffY = e2.y - e1.y
+//            val diffX = e2.x - e1.x
+//
+//            // Check if the movement is more vertical than horizontal
+//            if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+//                if (Math.abs(diffY) > swipeThreshold) {
+//                    if (diffY > 0) {
+//                        // Swipe down - don't show notification for common navigation
+//                        onGestureDetected("Swipe down detected")
+//                    } else {
+//                        // Swipe up - don't show notification for common navigation
+//                        onGestureDetected("Swipe up detected")
+//                    }
+//                    return true
+//                }
+//            }
+//            // Check if the movement is more horizontal than vertical
+//            else if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+//                if (Math.abs(diffX) > swipeThreshold) {
+//                    if (diffX > 0) {
+//                        // Swipe right
+//                        onGestureDetected("Swipe right detected")
+//                    } else {
+//                        // Swipe left
+//                        onGestureDetected("Swipe left detected")
+//                    }
+//                    return true
+//                }
+//            }
+//
+//            return false
+//        }
+//
+//        override fun onScroll(
+//            e1: MotionEvent?,
+//            e2: MotionEvent,
+//            distanceX: Float,
+//            distanceY: Float
+//        ): Boolean {
+//            println("gesture: onScroll: Native onScroll")
+//            if (e1 == null) return false
+//
+//            // Ignore stylus inputs
+//            if (isStylusEvent(e1) || isStylusEvent(e2)) {
+//                return false
+//            }
+//
+//            // Don't handle scroll during scaling
+//            if (isScaling) {
+//                return false
+//            }
+//
+//            // If primarily vertical motion, treat as vertical scroll
+//            if (Math.abs(distanceY) > Math.abs(distanceX) * 1.5f) {
+//                // Note: distanceY is inverted (positive means scrolling up)
+//                // NEW: Send the actual distance as part of the message
+//                onGestureDetected("Scroll:${distanceY}")
+//
+//                viewportTransformer.scroll(distanceY, false)
+//                return true
+//            }
+//
+//            return false
+//        }
+//    })
 
-        override fun onDoubleTap(e: MotionEvent): Boolean {
-            println("gesture: onDoubleTap")
-            // Ignore stylus inputs
-            if (isStylusEvent(e)) {
-                return false
-            }
-
-            // Don't trigger double tap during scaling
-            if (isScaling) {
-                return false
-            }
-
-            // Only handle single finger double taps with GestureDetector
-            if (e.pointerCount == 1) {
-                onGestureDetected("Double tap detected")
-                return true
-            }
-            return false
-        }
-
-        override fun onFling(
-            e1: MotionEvent?,
-            e2: MotionEvent,
-            velocityX: Float,
-            velocityY: Float
-        ): Boolean {
-            println("gesture: onFling")
-            if (e1 == null) return false
-
-            // Ignore stylus inputs
-            if (isStylusEvent(e1) || isStylusEvent(e2)) {
-                return false
-            }
-
-            // Don't trigger fling during scaling
-            if (isScaling) {
-                return false
-            }
-
-            val diffY = e2.y - e1.y
-            val diffX = e2.x - e1.x
-
-            // Check if the movement is more vertical than horizontal
-            if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
-                if (Math.abs(diffY) > swipeThreshold) {
-                    if (diffY > 0) {
-                        // Swipe down - don't show notification for common navigation
-                        onGestureDetected("Swipe down detected")
-                    } else {
-                        // Swipe up - don't show notification for common navigation
-                        onGestureDetected("Swipe up detected")
-                    }
-                    return true
-                }
-            }
-            // Check if the movement is more horizontal than vertical
-            else if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
-                if (Math.abs(diffX) > swipeThreshold) {
-                    if (diffX > 0) {
-                        // Swipe right
-                        onGestureDetected("Swipe right detected")
-                    } else {
-                        // Swipe left
-                        onGestureDetected("Swipe left detected")
-                    }
-                    return true
-                }
-            }
-
-            return false
-        }
-
-        override fun onScroll(
-            e1: MotionEvent?,
-            e2: MotionEvent,
-            distanceX: Float,
-            distanceY: Float
-        ): Boolean {
-            println("gesture: onScroll: Native onScroll")
-            if (e1 == null) return false
-
-            // Ignore stylus inputs
-            if (isStylusEvent(e1) || isStylusEvent(e2)) {
-                return false
-            }
-
-            // Don't handle scroll during scaling
-            if (isScaling) {
-                return false
-            }
-
-            // If primarily vertical motion, treat as vertical scroll
-            if (Math.abs(distanceY) > Math.abs(distanceX) * 1.5f) {
-                // Note: distanceY is inverted (positive means scrolling up)
-                // NEW: Send the actual distance as part of the message
-                onGestureDetected("Scroll:${distanceY}")
-
-                viewportTransformer.scroll(distanceY, false)
-                return true
-            }
-
-            return false
-        }
-    })
-
-    // Scale detector for pinch zoom
-    private val scaleGestureDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-            println("gesture: onScaleBegin")
-            isScaling = true
-            onScaleBegin(detector.focusX, detector.focusY)
-            return true
-        }
-
-        override fun onScale(detector: ScaleGestureDetector): Boolean {
-            println("gesture: onScale")
-            onScale(detector.scaleFactor)
-            return true
-        }
-
-        override fun onScaleEnd(detector: ScaleGestureDetector) {
-            println("gesture: onScaleEnd")
-            isScaling = false
-            onScaleEnd()
-        }
-    })
+//    // Scale detector for pinch zoom
+//    private val scaleGestureDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+//        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+//            println("gesture: onScaleBegin")
+//            isScaling = true
+//            onScaleBegin(detector.focusX, detector.focusY)
+//            return true
+//        }
+//
+//        override fun onScale(detector: ScaleGestureDetector): Boolean {
+//            println("gesture: onScale")
+//            onScale(detector.scaleFactor)
+//            return true
+//        }
+//
+//        override fun onScaleEnd(detector: ScaleGestureDetector) {
+//            println("gesture: onScaleEnd")
+//            isScaling = false
+//            onScaleEnd()
+//        }
+//    })
 
     /**
      * Check if the event is from a stylus rather than a finger.
@@ -223,13 +226,17 @@ class DrawingGestureDetector(
         val currentTime = System.currentTimeMillis()
 
         // Handle multi-finger gestures first, before delegating to other detectors
-        println("gesture: action is $action")
         when (action) {
             MotionEvent.ACTION_DOWN -> {
                 // First finger down - start tracking a new gesture
-                stopTapTimer() // don't emit gesture from earlier tap
+
                 if (!isInGesture) {
                     gestureStartTime = currentTime
+                    tapCount++
+                    countedFirstTap = true
+                } else {
+                    // Could be single finger triple tap
+                    stopTapTimer() // don't emit gesture from earlier tap
                 }
 
                 isInGesture = true
@@ -267,26 +274,7 @@ class DrawingGestureDetector(
                 actionUpOrActionCancel(event, false, currentTime)
             }
         }
-
-        // For single finger gestures, pass to the standard gesture detector
-        // but only if we're not in a multi-finger gesture
-        var gestureHandled = false
-        val timeNow = System.currentTimeMillis()
-        if (((timeNow - gestureStartTime) > FINGER_CONTACT_WINDOW) && maxPointerCount <= 1) {
-
-            gestureHandled = gestureDetector.onTouchEvent(event)
-            println("gesture: Sent to simple gesture. Handled? $gestureHandled")
-        }
-
-        // Always pass to the scale detector, it handles its own state
-        val scaleHandled = scaleGestureDetector.onTouchEvent(event)
-
-        // If we're scaling, don't allow other gestures to interfere
-        if (isScaling) {
-            return scaleHandled
-        }
-
-        return gestureHandled || scaleHandled || isInGesture
+        return isInGesture
     }
 
     private fun stopTapTimer() {
@@ -316,7 +304,7 @@ class DrawingGestureDetector(
 
     private fun actionUpOrActionCancel(event: MotionEvent, isActionUp: Boolean, currentTime: Long) {
         // Last finger up - process the complete gesture
-        println("ACTION_UP: All fingers up, max was: $maxPointerCount is act4ion up? $isActionUp")
+        println("gesture: ACTION_UP: All fingers up, max was: $maxPointerCount is act4ion up? $isActionUp")
         if (isInGesture) {
             //println("gesture: actionUpOrActionCancel isInGesture")
             val timeNow = System.currentTimeMillis()
@@ -326,6 +314,7 @@ class DrawingGestureDetector(
             // want to make sure it is not just another finger so we take time measurement
             if (isNotQuickTap) {
                 tapCount++ // they tapped again
+                println("gesture: increase tapCount to $tapCount")
                 // wait to see if they tap again
                 startTapTimer()
             }
@@ -339,6 +328,7 @@ class DrawingGestureDetector(
         tapCount = 0
         isInGesture = false
         maxPointerCount = 0
+        countedFirstTap = false
     }
 
     /**
@@ -348,6 +338,7 @@ class DrawingGestureDetector(
      */
     private fun handleMultiFingerDoubleTap(fingerCount: Int) {
         when (fingerCount) {
+            1 -> onGestureDetected("gesture: Single-finger double tap detected")
             2 -> onGestureDetected("gesture: Two-finger double tap detected")
             3 -> onGestureDetected("gesture: Three-finger double tap detected")
             4 -> onGestureDetected("gesture: Four-finger double tap detected")
@@ -357,6 +348,7 @@ class DrawingGestureDetector(
 
     private fun handleMultiFingerTripleTap(fingerCount: Int) {
         when (fingerCount) {
+            1 -> onGestureDetected("gesture: Single-finger triple tap detected")
             2 -> onGestureDetected("gesture: Two-finger triple tap detected")
             3 -> onGestureDetected("gesture: Three-finger triple tap detected")
             4 -> onGestureDetected("gesture: Four-finger triple tap detected")
