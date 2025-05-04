@@ -37,6 +37,12 @@ class GestureNotifier {
             GestureType.SWIPE_DOWN_FAST -> "Fast Swipe Down"
             GestureType.SWIPE_DOWN_SLOW -> "Slow Swipe Down"
             GestureType.FINGER_MOVE -> "Finger move"
+            GestureType.SWIPE_LEFT -> "Swipe left"
+            GestureType.SWIPE_RIGHT -> "Swipe right"
+            GestureType.DOUBLE_TAP -> "Double tap"
+            GestureType.TWO_FINGER_DOUBLE_TAP -> "Two finger double tap"
+            GestureType.THREE_FINGER_DOUBLE_TAP -> "Three finger double tap"
+            GestureType.FOUR_FINGER_DOUBLE_TAP -> "Four finger double tap"
         }
 
         return "$gestureType detected: " +

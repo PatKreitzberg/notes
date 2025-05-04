@@ -171,20 +171,20 @@ class GestureDetector(private val context: Context) {
 }
 
 // Data classes and enums for gesture events
-data class GesturePoint(val x: Float, val y: Float)
-
-enum class GestureType {
-    SWIPE_UP_FAST,
-    SWIPE_UP_SLOW,
-    SWIPE_DOWN_FAST,
-    SWIPE_DOWN_SLOW,
-    FINGER_MOVE,
-}
-
-data class GestureEvent(
-    val type: GestureType,
-    val startPoint: GesturePoint,
-    val endPoint: GesturePoint,
-    val duration: Long
-)
+//data class GesturePoint(val x: Float, val y: Float)
+//
+//enum class GestureType {
+//    SWIPE_UP_FAST,
+//    SWIPE_UP_SLOW,
+//    SWIPE_DOWN_FAST,
+//    SWIPE_DOWN_SLOW,
+//    FINGER_MOVE,
+//}
+//
+//data class GestureEvent(
+//    val type: GestureType,
+//    val startPoint: GesturePoint,
+//    val endPoint: GesturePoint,
+//    val duration: Long
+//)
 
