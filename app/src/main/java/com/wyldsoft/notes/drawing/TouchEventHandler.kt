@@ -24,10 +24,7 @@ import android.view.MotionEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import com.wyldsoft.notes.gesture.DirectScrollTracker
 import com.wyldsoft.notes.gesture.DrawingGestureDetector
-import com.wyldsoft.notes.gesture.GestureDetector
-import com.wyldsoft.notes.gesture.GestureNotifier
 import com.wyldsoft.notes.pagination.PaginationManager
 import com.wyldsoft.notes.transform.ViewportTransformer
 import com.wyldsoft.notes.selection.SelectionHandler
@@ -85,16 +82,16 @@ class TouchEventHandler(
     */
 
     val gestureDetector = DrawingGestureDetector(
-        context,
-        coroutineScope,
-        viewportTransformer,
-        onScrollComplete = {
-            // Update active surface when scrolling completes
-            updateActiveSurface()
-        }
+        context = context,
+        viewportTransformer = viewportTransformer,
+        coroutineScope = coroutineScope,
+        onGestureDetected = { gesture -> println("Gesture detected: $gesture") },
+        onScaleBegin = { x, y -> println("Scale begin at: x = $x, y = $y") },
+        onScale = { scaleFactor -> println("Scale factor delta: $scaleFactor") },
+        onScaleEnd = { println("Scale ended") }
     )
 
-    val gestureNotifier = GestureNotifier()
+    //val gestureNotifier = GestureNotifier()
 
     private fun isStylusEvent(event: MotionEvent): Boolean {
         return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
@@ -121,24 +118,20 @@ class TouchEventHandler(
             }
 
             // Process with our unified gesture detector
-            return@setOnTouchListener gestureDetector.processTouchEvent(event)
+            return@setOnTouchListener gestureDetector.onTouchEvent(event)
         }
 
-        coroutineScope.launch {
-            gestureDetector.gestureDetected.collect { gestureEvent ->
-                println("Gesture detected: ${gestureEvent.type}")
-                gestureNotifier.notifyGesture(gestureEvent)
+//        coroutineScope.launch {
+//            gestureDetector.gestureDetected.collect { gestureEvent ->
+//                println("Gesture detected: ${gestureEvent.type}")
+//                gestureNotifier.notifyGesture(gestureEvent)
+//
+//                // Handle final gesture - now scrolling is done directly in DrawingGestureDetector
+//                updateActiveSurface() // Call this when gestures are completed
+//            }
+//        }
 
-                // Handle final gesture - now scrolling is done directly in DrawingGestureDetector
-                updateActiveSurface() // Call this when gestures are completed
-            }
-        }
 
-        coroutineScope.launch {
-            gestureDetector.gestureMoved.collect { moveEvent ->
-                // Nothing to do here as scrolling is handled in DrawingGestureDetector
-            }
-        }
 
 
     }

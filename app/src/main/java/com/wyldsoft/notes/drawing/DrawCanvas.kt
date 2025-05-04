@@ -13,9 +13,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import com.wyldsoft.notes.gesture.GestureEvent
-import com.wyldsoft.notes.gesture.GestureNotifier
-import com.wyldsoft.notes.gesture.GestureType
+//import com.wyldsoft.notes.gesture.GestureEvent
+//import com.wyldsoft.notes.gesture.GestureNotifier
+//import com.wyldsoft.notes.gesture.GestureType
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
@@ -38,7 +38,7 @@ class DrawCanvas(
     private lateinit var selectionHandler: SelectionHandler
     private lateinit var canvasRenderer: CanvasRenderer
     private lateinit var touchEventHandler: TouchEventHandler
-    private var gestureNotifier = GestureNotifier()
+    //private var gestureNotifier = GestureNotifier()
 
     private val viewportTransformer get() = page.viewportTransformer
 
@@ -116,16 +116,15 @@ class DrawCanvas(
         touchEventHandler.setupTouchInterception()
 
         // Register to receive gesture events
-        coroutineScope.launch {
-            touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
-                println("Gesture detected: ${gestureEvent.type}")
-                gestureNotifier.notifyGesture(gestureEvent)
-            }
-        }
+//        coroutineScope.launch {
+//            touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
+//                println("Gesture detected: ${gestureEvent.type}")
+//                gestureNotifier.notifyGesture(gestureEvent)
+//            }
+//        }
 
         this.holder.addCallback(surfaceCallback)
     }
-
 
     fun registerObservers() {
         coroutineScope.launch {
@@ -163,13 +162,6 @@ class DrawCanvas(
             DrawingManager.refreshUi.collect {
                 println("Refreshing UI!")
                 refreshUiSuspend()
-            }
-        }
-
-        coroutineScope.launch {
-            DrawingManager.isDrawing.collect {
-                println("Drawing state changed!")
-                state.isDrawing = it
             }
         }
 
