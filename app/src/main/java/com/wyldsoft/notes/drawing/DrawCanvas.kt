@@ -120,52 +120,10 @@ class DrawCanvas(
             touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
                 println("Gesture detected: ${gestureEvent.type}")
                 gestureNotifier.notifyGesture(gestureEvent)
-
-                // Handle final gesture (swipe complete)
-                handleScrollGesture(gestureEvent)
-            }
-        }
-
-        // Add a new collector for move events
-        coroutineScope.launch {
-            touchEventHandler.gestureDetector.gestureMoved.collect { moveEvent ->
-                // Handle continuous scrolling during finger movement
-                handleMoveScrolling(moveEvent)
             }
         }
 
         this.holder.addCallback(surfaceCallback)
-    }
-
-    private fun handleMoveScrolling(event: GestureEvent) {
-        if (event.type == GestureType.FINGER_MOVE) {
-            // Calculate scroll delta based on finger movement
-            val deltaY = event.startPoint.y - event.endPoint.y
-
-            // Scale the movement for more natural scrolling
-            // The multiplier controls how "responsive" the scrolling feels
-            val scrollAmount = deltaY * 1.2f
-
-            // Use direct scrolling without animation since we're updating in real-time
-            viewportTransformer.scroll(scrollAmount, false)
-        }
-    }
-
-    private fun handleScrollGesture(event: GestureEvent) {
-        when (event.type) {
-            GestureType.SWIPE_UP_FAST, GestureType.SWIPE_UP_SLOW,
-            GestureType.SWIPE_DOWN_FAST, GestureType.SWIPE_DOWN_SLOW -> {
-                // Apply a final scroll with inertia for better UX
-                val scrollAmount = viewportTransformer.calculateScrollAmount(
-                    event.startPoint.y,
-                    event.endPoint.y,
-                    event.duration
-                )
-
-                viewportTransformer.scroll(scrollAmount, true)
-            }
-            else -> {} // Ignore other gestures
-        }
     }
 
 
