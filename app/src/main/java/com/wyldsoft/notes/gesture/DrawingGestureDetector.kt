@@ -97,6 +97,7 @@ class DrawingGestureDetector(
             velocityX: Float,
             velocityY: Float
         ): Boolean {
+            println("scroll onFling")
             if (e1 == null) return false
 
             // Ignore stylus inputs
@@ -269,10 +270,12 @@ class DrawingGestureDetector(
                     // Apply inertial scroll for swipes
                     if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > swipeThreshold) {
                         // Calculate scroll with inertia
-                        val scrollAmount = viewportTransformer.calculateScrollAmount(
-                            startY, event.y, duration
-                        )
-                        viewportTransformer.scroll(scrollAmount, true)
+//                        val scrollAmount = viewportTransformer.calculateScrollAmount(
+//                            startY, event.y, duration
+//                        )
+
+                        println("scroll viewportTransformer.scroll(deltaY, false)")
+                        viewportTransformer.scroll(deltaY, false)
 
                         // Determine gesture type
                         val gestureType = if (deltaY < 0) {

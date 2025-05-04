@@ -109,7 +109,7 @@ class ViewportTransformer(
      */
     fun calculateScrollAmount(startY: Float, endY: Float, duration: Long): Float {
         val delta = startY - endY // Reverse direction: up swipe = scroll down
-        println("scroll delta $delta")
+        println("scroll calculateScrollAmount delta $delta")
         // Base scroll amount is proportional to gesture distance
         val baseScrollAmount = delta * (viewHeight / 3f) / viewHeight
 
