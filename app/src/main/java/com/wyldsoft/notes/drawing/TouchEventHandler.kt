@@ -111,9 +111,14 @@ class TouchEventHandler(
                 return@setOnTouchListener false
             }
 
-            // Process with our unified gesture detector
             return@setOnTouchListener gestureDetector.onTouchEvent(event)
         }
+
+        // Get the gesture handler for this detector
+        val gestureHandler = gestureDetector.getGestureHandler()
+
+        // We can now access and configure the gesture handler if needed
+        // For example, we could override specific gestures for the current state
     }
 
     /*

@@ -34,6 +34,9 @@ class DrawingGestureDetector(
     private val swipeThreshold = convertDpToPixel(SWIPE_THRESHOLD_DP, context)
     private var tapTimer: CountDownTimer? = null
 
+    // Create the gesture handler
+    private val gestureHandler = GestureHandler(context, coroutineScope, viewportTransformer)
+
     // Track gesture state
     private var isInGesture = false
     private var gestureStartTime = 0L
@@ -168,7 +171,7 @@ class DrawingGestureDetector(
         if (isInGesture) {
             val timeNow = System.currentTimeMillis()
 
-            val isNotQuickTap = timeNow - gestureStartTime >FINGER_CONTACT_WINDOW
+            val isNotQuickTap = timeNow - gestureStartTime > FINGER_CONTACT_WINDOW
             // want to make sure it is not just another finger so we take time measurement
             if (isNotQuickTap) {
                 tapCount++ // they tapped again
@@ -191,22 +194,35 @@ class DrawingGestureDetector(
      * @param fingerCount Number of fingers used in the gesture
      */
     private fun handleMultiFingerDoubleTap(fingerCount: Int) {
-        when (fingerCount) {
-            1 -> onGestureDetected("gesture: Single-finger double tap detected")
-            2 -> onGestureDetected("gesture: Two-finger double tap detected")
-            3 -> onGestureDetected("gesture: Three-finger double tap detected")
-            4 -> onGestureDetected("gesture: Four-finger double tap detected")
-            // Add more cases if needed
+        val gesture = when (fingerCount) {
+            1 -> "gesture: Single-finger double tap detected"
+            2 -> "gesture: Two-finger double tap detected"
+            3 -> "gesture: Three-finger double tap detected"
+            4 -> "gesture: Four-finger double tap detected"
+            else -> "gesture: Unknown double tap detected"
         }
+
+        onGestureDetected(gesture)
+        // Pass to gesture handler
+        gestureHandler.handleGesture(gesture)
     }
 
     private fun handleMultiFingerTripleTap(fingerCount: Int) {
-        when (fingerCount) {
-            1 -> onGestureDetected("gesture: Single-finger triple tap detected")
-            2 -> onGestureDetected("gesture: Two-finger triple tap detected")
-            3 -> onGestureDetected("gesture: Three-finger triple tap detected")
-            4 -> onGestureDetected("gesture: Four-finger triple tap detected")
-            // Add more cases if needed
+        val gesture = when (fingerCount) {
+            1 -> "gesture: Single-finger triple tap detected"
+            2 -> "gesture: Two-finger triple tap detected"
+            3 -> "gesture: Three-finger triple tap detected"
+            4 -> "gesture: Four-finger triple tap detected"
+            else -> "gesture: Unknown triple tap detected"
         }
+
+        onGestureDetected(gesture)
+        // Pass to gesture handler
+        gestureHandler.handleGesture(gesture)
+    }
+
+    // Expose the gesture handler to allow configuration
+    fun getGestureHandler(): GestureHandler {
+        return gestureHandler
     }
 }

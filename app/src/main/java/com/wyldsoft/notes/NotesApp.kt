@@ -7,6 +7,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import com.wyldsoft.notes.database.NotesDatabase
 import com.wyldsoft.notes.database.repository.*
+import com.wyldsoft.notes.gesture.GestureHandler
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.sync.DriveServiceWrapper
 import com.wyldsoft.notes.sync.SyncManager
@@ -37,6 +38,9 @@ class NotesApp : Application(), Configuration.Provider {
     lateinit var pageNotebookRepository: PageNotebookRepository
         private set
 
+    lateinit var gestureHandler: GestureHandler
+        private set
+
     // Sync components
     lateinit var driveServiceWrapper: DriveServiceWrapper
         private set
@@ -49,6 +53,7 @@ class NotesApp : Application(), Configuration.Provider {
         checkHiddenApiBypass()
         initializeDatabase()
         initializeSyncComponents()
+        gestureHandler = GestureHandler(this, applicationScope)
     }
 
     private fun checkHiddenApiBypass() {
