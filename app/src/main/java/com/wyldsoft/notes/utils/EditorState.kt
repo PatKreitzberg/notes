@@ -87,6 +87,8 @@ class EditorState(val pageId: String, val pageView: PageView) {
     var allowDrawingOnCanvas by mutableStateOf(true)
     val stateExcludeRects = mutableStateMapOf<ExcludeRects, Rect>()
     var stateExcludeRectsModified by mutableStateOf(false)
+    var canUndo by mutableStateOf(false)
+    var canRedo by mutableStateOf(false)
 
     var penSettings by mutableStateOf(
         mapOf(

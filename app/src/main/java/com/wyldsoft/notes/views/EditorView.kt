@@ -70,6 +70,8 @@ fun EditorView(noteId: String? = null) {
 
     var noteTitle by remember { mutableStateOf("New Note") }
 
+
+
     // State for notebook management
     var showNotebookDialog by remember { mutableStateOf(false) }
     val notebooks by notebookRepository.getAllNotebooks().collectAsState(initial = emptyList())
@@ -100,6 +102,10 @@ fun EditorView(noteId: String? = null) {
             }
         }
 
+        val drawingManager = remember {
+            DrawingManager(page, page.getHistoryManager())
+        }
+
         val editorState = remember { EditorState(pageId = pageId, pageView = page) }
 
         val selectionHandler = remember {
@@ -116,7 +122,6 @@ fun EditorView(noteId: String? = null) {
             if (noteId != null) {
                 try {
                     println("DEBUG: Loading strokes for note $noteId")
-
                     val note = noteRepository.getNoteById(noteId)
                     if (note != null) {
                         noteTitle = note.title
@@ -274,6 +279,7 @@ fun EditorView(noteId: String? = null) {
                         viewportTransformer = page.viewportTransformer,
                         templateRenderer = templateRenderer,
                         selectionHandler = selectionHandler,
+                        drawingManager = drawingManager,
                         noteTitle = noteTitle,
                         onUpdateNoteName = { newName ->
                             // Handle the rename operation
@@ -296,7 +302,8 @@ fun EditorView(noteId: String? = null) {
                                     println("Error renaming note: ${e.message}")
                                 }
                             }
-                        }
+                        },
+                        page = page
                     )
                 }
             }

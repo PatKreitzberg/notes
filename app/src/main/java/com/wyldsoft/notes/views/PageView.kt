@@ -250,6 +250,16 @@ class PageView(
         println("DEBUG: Auto-draw complete for viewport: $viewportRect")
     }
 
+    /**
+     * Gets the history manager for this page
+     */
+    fun getHistoryManager(): com.wyldsoft.notes.utils.HistoryManager? {
+        val app = (context.applicationContext as? com.wyldsoft.notes.NotesApp)
+        val manager = app?.historyRepository?.getHistoryManager(id)
+        println("undo: Retrieved history manager for page $id: ${manager != null}")
+        return manager
+    }
+
     fun updateDimensions(newWidth: Int, newHeight: Int) {
         if (newWidth != viewWidth || newHeight != viewHeight) {
             viewWidth = newWidth

@@ -2,19 +2,29 @@ package com.wyldsoft.notes.classes.drawing
 
 import android.graphics.Rect
 import android.graphics.RectF
+import com.wyldsoft.notes.utils.ActionType
+import com.wyldsoft.notes.utils.HistoryAction
+import com.wyldsoft.notes.utils.HistoryManager
+import com.wyldsoft.notes.utils.MoveActionData
 import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.utils.Pen
+import com.wyldsoft.notes.utils.SerializableStroke
 import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.Stroke
+import com.wyldsoft.notes.utils.StrokeActionData
 import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
 /**
  * Responsible for managing the drawing operations.
  * Handles stroke creation, rendering, and coordination with PageView.
  */
-class DrawingManager(private val page: PageView) {
+class DrawingManager(
+    private val page: PageView,
+    private val historyManager: HistoryManager? = null
+) {
     companion object {
         val forceUpdate = MutableSharedFlow<Rect?>()
         val refreshUi = MutableSharedFlow<Unit>()
@@ -23,6 +33,7 @@ class DrawingManager(private val page: PageView) {
         val drawingInProgress = Mutex()
         val isStrokeOptionsOpen = MutableSharedFlow<Boolean>()
         val strokeStyleChanged = MutableSharedFlow<Unit>()
+        val undoRedoPerformed = MutableSharedFlow<Unit>()
     }
     private val strokeHistoryBatch = mutableListOf<String>()
 
@@ -100,7 +111,9 @@ class DrawingManager(private val page: PageView) {
                 createdScrollY = page.viewportTransformer.scrollY
             )
 
-            page.addStrokes(listOf(stroke))
+            // Add to page
+            val strokes = listOf(stroke)
+            page.addStrokes(strokes)
 
             // Draw the stroke on the page
             val rect = Rect(
@@ -112,6 +125,18 @@ class DrawingManager(private val page: PageView) {
 
             page.drawArea(rect)
             strokeHistoryBatch.add(stroke.id)
+
+            // Record in history for undo/redo
+            historyManager?.addAction(
+                HistoryAction(
+                    type = ActionType.ADD_STROKES,
+                    data = StrokeActionData(
+                        strokeIds = strokes.map { it.id },
+                        strokes = strokes.map { SerializableStroke.fromStroke(it) }
+                    )
+                )
+            ).also { println("undo: Added stroke action to history") }
+                ?: println("undo: Could not add stroke action to history - manager is null")
         } catch (e: Exception) {
             println("DEBUG ERROR: Handle Draw: ${e.message}")
             e.printStackTrace()
@@ -153,6 +178,26 @@ class DrawingManager(private val page: PageView) {
 
         val deletedStrokes = selectStrokesFromPath(page.strokes, outPath)
         val deletedStrokeIds = deletedStrokes.map { it.id }
+
+        // Skip if no strokes to delete
+        if (deletedStrokes.isEmpty()) return
+
+        // Record in history for undo/redo before removing
+        historyManager?.let { manager ->
+            if (deletedStrokes.isNotEmpty()) {
+                manager.addAction(
+                    HistoryAction(
+                        type = ActionType.DELETE_STROKES,
+                        data = StrokeActionData(
+                            strokeIds = deletedStrokeIds,
+                            strokes = deletedStrokes.map { SerializableStroke.fromStroke(it) }
+                        )
+                    )
+                )
+            }
+        }
+
+        // Remove the strokes
         page.removeStrokes(deletedStrokeIds)
 
         page.drawArea(
@@ -207,5 +252,95 @@ class DrawingManager(private val page: PageView) {
         }
 
         return result
+    }
+
+    /**
+     * Performs an undo operation
+     * @return true if undo was successful, false otherwise
+     */
+    fun undo(): Boolean {
+        if (historyManager == null) return false
+
+        val action = historyManager.undo() ?: return false
+
+        when (action.type) {
+            ActionType.ADD_STROKES -> {
+                // For added strokes, undo by removing them
+                val data = action.data as StrokeActionData
+                page.removeStrokes(data.strokeIds)
+            }
+
+            ActionType.DELETE_STROKES -> {
+                // For deleted strokes, undo by adding them back
+                val data = action.data as StrokeActionData
+                val strokes = data.strokes.map { it.toStroke() }
+                page.addStrokes(strokes)
+            }
+
+            ActionType.MOVE_STROKES -> {
+                // For moved strokes, undo by restoring original positions
+                val data = action.data as MoveActionData
+                val originalStrokes = data.originalStrokes.map { it.toStroke() }
+
+                // First remove the moved strokes
+                page.removeStrokes(data.strokeIds)
+
+                // Then add back the original ones
+                page.addStrokes(originalStrokes)
+            }
+        }
+
+        // Force UI update
+        kotlinx.coroutines.GlobalScope.launch {
+            undoRedoPerformed.emit(Unit)
+            refreshUi.emit(Unit)
+        }
+
+        return true
+    }
+
+    /**
+     * Performs a redo operation
+     * @return true if redo was successful, false otherwise
+     */
+    fun redo(): Boolean {
+        if (historyManager == null) return false
+
+        val action = historyManager.redo() ?: return false
+
+        when (action.type) {
+            ActionType.ADD_STROKES -> {
+                // For added strokes, redo by adding them back
+                val data = action.data as StrokeActionData
+                val strokes = data.strokes.map { it.toStroke() }
+                page.addStrokes(strokes)
+            }
+
+            ActionType.DELETE_STROKES -> {
+                // For deleted strokes, redo by removing them again
+                val data = action.data as StrokeActionData
+                page.removeStrokes(data.strokeIds)
+            }
+
+            ActionType.MOVE_STROKES -> {
+                // For moved strokes, redo by applying the move again
+                val data = action.data as MoveActionData
+                val movedStrokes = data.modifiedStrokes.map { it.toStroke() }
+
+                // First remove the original strokes
+                page.removeStrokes(data.strokeIds)
+
+                // Then add the moved ones
+                page.addStrokes(movedStrokes)
+            }
+        }
+
+        // Force UI update
+        kotlinx.coroutines.GlobalScope.launch {
+            undoRedoPerformed.emit(Unit)
+            refreshUi.emit(Unit)
+        }
+
+        return true
     }
 }

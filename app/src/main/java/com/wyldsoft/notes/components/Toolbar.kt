@@ -49,6 +49,7 @@ import android.graphics.drawable.VectorDrawable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import com.wyldsoft.notes.R
+import com.wyldsoft.notes.views.PageView
 
 
 @Composable
@@ -58,8 +59,10 @@ fun Toolbar(
     viewportTransformer: ViewportTransformer,
     templateRenderer: TemplateRenderer,
     selectionHandler: SelectionHandler,
+    drawingManager: DrawingManager,
     noteTitle: String,
-    onUpdateNoteName: (String) -> Unit
+    onUpdateNoteName: (String) -> Unit,
+    page: PageView = state.pageView  // Add this parameter with default value
 ) {
     val scope = rememberCoroutineScope()
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
@@ -67,6 +70,8 @@ fun Toolbar(
     var strokePanelRect by remember { mutableStateOf<Rect?>(null) }
     var haveStrokePanelRect by remember { mutableStateOf(false) }
     val EraserIcon = ImageVector.vectorResource(R.drawable.eraser)
+
+    // ... rest of the Toolbar implementation
 
     fun removeStrokeOptionPanelRect() {
         state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
@@ -248,31 +253,56 @@ fun Toolbar(
                         .background(androidx.compose.ui.graphics.Color.Black)
                 )
 
-                // Undo button (Placeholder - no history implemented yet)
+                // Undo button
                 ToolbarButton(
                     onSelect = {
-                        // No functionality yet
                         // Close stroke options panel if open
                         if (isStrokeSelectionOpen) {
                             removeStrokeOptionPanelRect()
+                        }
+
+                        // Perform undo operation
+                        scope.launch {
+                            val historyManager = page.getHistoryManager()
+                            val drawingManager = DrawingManager(page, historyManager)
+                            val success = drawingManager.undo()
+                            if (success) {
+                                scope.launch {
+                                    DrawingManager.refreshUi.emit(Unit)
+                                }
+                            }
                         }
                     },
                     imageVector = Icons.Default.Undo,
-                    contentDescription = "Undo"
+                    contentDescription = "Undo",
+                    isEnabled = state.canUndo.also { println("DEBUG: Undo button isEnabled=$it") }
                 )
 
-                // Redo button (Placeholder - no history implemented yet)
+                // Redo button
                 ToolbarButton(
                     onSelect = {
-                        // No real functionality yet
                         // Close stroke options panel if open
                         if (isStrokeSelectionOpen) {
                             removeStrokeOptionPanelRect()
                         }
+
+                        // Perform redo operation
+                        scope.launch {
+                            val historyManager = page.getHistoryManager()
+                            val drawingManager = DrawingManager(page, historyManager)
+                            val success = drawingManager.redo()
+                            if (success) {
+                                scope.launch {
+                                    DrawingManager.refreshUi.emit(Unit)
+                                }
+                            }
+                        }
                     },
                     imageVector = Icons.Default.Redo,
-                    contentDescription = "Redo"
+                    contentDescription = "Redo",
+                    isEnabled = state.canRedo
                 )
+
                 Spacer(Modifier.weight(1f))
 
                 Box(

@@ -19,9 +19,10 @@ import com.wyldsoft.notes.database.util.Converters
         SettingsEntity::class,
         FolderEntity::class,
         NotebookEntity::class,
-        PageNotebookJoin::class
+        PageNotebookJoin::class,
+        HistoryActionEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -33,10 +34,34 @@ abstract class NotesDatabase : RoomDatabase() {
     abstract fun folderDao(): FolderDao
     abstract fun notebookDao(): NotebookDao
     abstract fun pageNotebookDao(): PageNotebookDao
+    abstract fun historyActionDao(): HistoryActionDao
 
     companion object {
         @Volatile
         private var INSTANCE: NotesDatabase? = null
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Create history_actions table
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS history_actions (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        noteId TEXT NOT NULL,
+                        actionType TEXT NOT NULL,
+                        actionData TEXT NOT NULL,
+                        sequenceNumber INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY (noteId) REFERENCES notes (id) ON DELETE CASCADE
+                    )
+                    """
+                )
+
+                // Create indices
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_history_actions_noteId ON history_actions (noteId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_history_actions_sequenceNumber ON history_actions (sequenceNumber)")
+            }
+        }
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
@@ -96,7 +121,7 @@ abstract class NotesDatabase : RoomDatabase() {
                     NotesDatabase::class.java,
                     "notes_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

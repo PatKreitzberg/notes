@@ -252,7 +252,7 @@ fun ColorButton(
             .padding(4.dp)
             .background(color)
             .clip(CircleShape)
-            .noRippleClickable(onSelect)
+            .noRippleClickable(onClick = onSelect)
             .then(
                 if (isSelected) {
                     Modifier.border(2.dp, Color.Black, CircleShape)

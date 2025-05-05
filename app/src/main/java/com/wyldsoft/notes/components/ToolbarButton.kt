@@ -22,6 +22,7 @@ import com.wyldsoft.notes.utils.noRippleClickable
 fun ToolbarButton(
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
+    isEnabled: Boolean = true,
     onSelect: () -> Unit = {},
     imageVector: ImageVector? = null,
     text: String? = null,
@@ -31,7 +32,7 @@ fun ToolbarButton(
     Box(
         Modifier
             .then(modifier)
-            .noRippleClickable {
+            .noRippleClickable(enabled = isEnabled) {
                 onSelect()
             }
             .background(
@@ -45,39 +46,24 @@ fun ToolbarButton(
             Icon(
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                tint = if (penColor == Color.Black || penColor == Color.DarkGray || isSelected)
-                    Color.White
-                else if (isSelected)
-                    Color.White
-                else
-                    Color.Black
+                tint = when {
+                    !isEnabled -> Color.Gray
+                    penColor == Color.Black || penColor == Color.DarkGray || isSelected -> Color.White
+                    isSelected -> Color.White
+                    else -> Color.Black
+                }
             )
         }
         if (text != null) {
             Text(
                 text = text,
                 fontSize = 20.sp,
-                color = if (isSelected) Color.White else Color.Black
+                color = when {
+                    !isEnabled -> Color.Gray
+                    isSelected -> Color.White
+                    else -> Color.Black
+                }
             )
         }
     }
 }
-
-@Composable
-fun ColorButton(
-    color: Color,
-    isSelected: Boolean = false,
-    onSelect: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .padding(4.dp)
-            .background(color)
-            .border(2.dp, if (isSelected) Color.Black else Color.Transparent)
-            .noRippleClickable(onSelect)
-    ) {
-        // Content goes here if needed
-    }
-}
-

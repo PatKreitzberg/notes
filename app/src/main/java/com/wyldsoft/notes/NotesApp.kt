@@ -38,6 +38,9 @@ class NotesApp : Application(), Configuration.Provider {
     lateinit var pageNotebookRepository: PageNotebookRepository
         private set
 
+    lateinit var historyRepository: HistoryRepository
+        private set
+
     lateinit var gestureHandler: GestureHandler
         private set
 
@@ -90,6 +93,12 @@ class NotesApp : Application(), Configuration.Provider {
 
         pageNotebookRepository = PageNotebookRepository(
             database.pageNotebookDao()
+        )
+
+        historyRepository = HistoryRepository(
+            this,
+            applicationScope,
+            database.historyActionDao()
         )
     }
 

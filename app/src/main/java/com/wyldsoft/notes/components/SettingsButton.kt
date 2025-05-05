@@ -16,6 +16,6 @@ fun SettingsButton(
     Icon(
         imageVector = Icons.Default.Settings,
         contentDescription = "Settings",
-        modifier = modifier.noRippleClickable(onClick)
+        modifier = modifier.noRippleClickable(onClick = onClick)
     )
 }

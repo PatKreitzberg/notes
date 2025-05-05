@@ -9,9 +9,13 @@ import android.graphics.Path
 import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
 import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.utils.ActionType
 import com.wyldsoft.notes.utils.EditorState
+import com.wyldsoft.notes.utils.HistoryAction
 import com.wyldsoft.notes.utils.PlacementMode
 import com.wyldsoft.notes.utils.Mode
+import com.wyldsoft.notes.utils.MoveActionData
+import com.wyldsoft.notes.utils.SerializableStroke
 import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.Stroke
 import com.wyldsoft.notes.views.PageView
@@ -328,8 +332,26 @@ class SelectionHandler(
             )
         }
 
-        // Remove old strokes and add new ones
+        // Record the move operation for undo/redo
         val strokeIds = selectedStrokes.map { it.id }
+        val historyManager = (page.context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+            app.historyRepository.getHistoryManager(page.id)
+        }
+
+        historyManager?.addAction(
+            HistoryAction(
+                type = ActionType.MOVE_STROKES,
+                data = MoveActionData(
+                    strokeIds = strokeIds,
+                    originalStrokes = selectedStrokes.map { SerializableStroke.fromStroke(it) },
+                    modifiedStrokes = updatedStrokes.map { SerializableStroke.fromStroke(it) },
+                    offsetX = offset.x,
+                    offsetY = offset.y
+                )
+            )
+        )
+
+        // Remove old strokes and add new ones
         page.removeStrokes(strokeIds)
         page.addStrokes(updatedStrokes)
 
@@ -344,6 +366,7 @@ class SelectionHandler(
         // Force UI update
         refreshUi()
     }
+
 
     // Copy selected strokes to clipboard
     fun copySelection() {

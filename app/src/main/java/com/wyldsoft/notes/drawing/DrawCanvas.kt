@@ -22,6 +22,7 @@ import com.wyldsoft.notes.views.PageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wyldsoft.notes.selection.SelectionHandler
+import com.wyldsoft.notes.utils.HistoryManager
 
 /*
  * The main canvas component that coordinates all drawing operations.
@@ -39,11 +40,19 @@ class DrawCanvas(
     private lateinit var canvasRenderer: CanvasRenderer
     private lateinit var touchEventHandler: TouchEventHandler
     //private var gestureNotifier = GestureNotifier()
+    private var historyManager: HistoryManager? = null
 
     private val viewportTransformer get() = page.viewportTransformer
 
     fun init() {
         println("Initializing Canvas")
+
+        // Initialize history manager
+        historyManager = page.getHistoryManager()
+        println("undo: historyManager $historyManager")
+
+        // Update undo/redo state
+        updateUndoRedoState()
 
         // Initialize selection handler
         selectionHandler = SelectionHandler(
@@ -69,7 +78,7 @@ class DrawCanvas(
             this,
             coroutineScope,
             state,
-            DrawingManager(page),
+            DrawingManager(page, historyManager),
             canvasRenderer,
             page.viewportTransformer
         )
@@ -115,15 +124,26 @@ class DrawCanvas(
         // Setup touch event interception
         touchEventHandler.setupTouchInterception()
 
-        // Register to receive gesture events
-//        coroutineScope.launch {
-//            touchEventHandler.gestureDetector.gestureDetected.collect { gestureEvent ->
-//                println("Gesture detected: ${gestureEvent.type}")
-//                gestureNotifier.notifyGesture(gestureEvent)
-//            }
-//        }
-
         this.holder.addCallback(surfaceCallback)
+    }
+
+    private fun updateUndoRedoState() {
+        historyManager?.let { manager ->
+
+            coroutineScope.launch {
+                manager.canUndo.collect { canUndo ->
+                    state.canUndo = canUndo
+                    println("undo: update state.canUndo ${state.canUndo}")
+                }
+            }
+
+            coroutineScope.launch {
+                manager.canRedo.collect { canRedo ->
+                    state.canRedo = canRedo
+                    println("undo: update state.canRedo ${state.canRedo}")
+                }
+            }
+        }
     }
 
     fun registerObservers() {
@@ -137,6 +157,14 @@ class DrawCanvas(
                     // Emit event to close stroke options
                     DrawingManager.isStrokeOptionsOpen.emit(false)
                 }
+            }
+        }
+
+        // observe undoRedoPerformed
+        coroutineScope.launch {
+            DrawingManager.undoRedoPerformed.collect {
+                println("Undo/Redo performed, refreshing UI")
+                refreshUi()
             }
         }
 
