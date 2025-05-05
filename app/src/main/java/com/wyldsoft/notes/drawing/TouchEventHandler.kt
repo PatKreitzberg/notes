@@ -80,18 +80,12 @@ class TouchEventHandler(
     /*
       start gesture detection
     */
-
     val gestureDetector = DrawingGestureDetector(
         context = context,
         viewportTransformer = viewportTransformer,
         coroutineScope = coroutineScope,
-        onGestureDetected = { gesture -> println("Gesture detected: $gesture") },
-        onScaleBegin = { x, y -> println("Scale begin at: x = $x, y = $y") },
-        onScale = { scaleFactor -> println("Scale factor delta: $scaleFactor") },
-        onScaleEnd = { println("Scale ended") }
+        onGestureDetected = { gesture -> println("Gesture detected: $gesture") }
     )
-
-    //val gestureNotifier = GestureNotifier()
 
     private fun isStylusEvent(event: MotionEvent): Boolean {
         return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
@@ -120,20 +114,6 @@ class TouchEventHandler(
             // Process with our unified gesture detector
             return@setOnTouchListener gestureDetector.onTouchEvent(event)
         }
-
-//        coroutineScope.launch {
-//            gestureDetector.gestureDetected.collect { gestureEvent ->
-//                println("Gesture detected: ${gestureEvent.type}")
-//                gestureNotifier.notifyGesture(gestureEvent)
-//
-//                // Handle final gesture - now scrolling is done directly in DrawingGestureDetector
-//                updateActiveSurface() // Call this when gestures are completed
-//            }
-//        }
-
-
-
-
     }
 
     /*

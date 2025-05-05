@@ -1,4 +1,3 @@
-// app/src/main/java/com/wyldsoft/notes/components/HomeSettingsDialog.kt (updated)
 package com.wyldsoft.notes.dialog
 
 import androidx.compose.foundation.background
@@ -16,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
-import com.wyldsoft.notes.components.BackupSettingsDialog
 
 @Composable
 fun HomeSettingsDialog(
@@ -24,8 +22,6 @@ fun HomeSettingsDialog(
 ) {
     val context = LocalContext.current
     val app = NotesApp.getApp(context)
-
-    var showBackupDialog by remember { mutableStateOf(false) }
     var showSyncDialog by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -61,28 +57,6 @@ fun HomeSettingsDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Backup settings button (legacy)
-            Button(
-                onClick = {
-                    showBackupDialog = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Backup,
-                        contentDescription = "Backup Settings"
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Legacy Backup")
-                }
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // Close button
@@ -93,12 +67,6 @@ fun HomeSettingsDialog(
                 Text("Close")
             }
         }
-    }
-
-    if (showBackupDialog) {
-        BackupSettingsDialog(
-            onDismiss = { showBackupDialog = false }
-        )
     }
 
     if (showSyncDialog) {

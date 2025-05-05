@@ -2,10 +2,7 @@ package com.wyldsoft.notes.gesture
 
 import android.content.Context
 import android.os.CountDownTimer
-import android.util.Log
-import android.view.GestureDetector
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 
@@ -16,10 +13,7 @@ class DrawingGestureDetector(
     context: Context,
     private val viewportTransformer: ViewportTransformer,
     private val coroutineScope: CoroutineScope,
-    private val onGestureDetected: (String) -> Unit,
-    private val onScaleBegin: (Float, Float) -> Unit = { _, _ -> }, // Focal point X,Y
-    private val onScale: (Float) -> Unit = {}, // Scale factor delta
-    private val onScaleEnd: () -> Unit = {}
+    private val onGestureDetected: (String) -> Unit
 ) {
     // Minimum distance required for a swipe gesture in dp
     private val SWIPE_THRESHOLD_DP = 50.dp
@@ -49,7 +43,6 @@ class DrawingGestureDetector(
     private var lastTouchY = 0f
     private var isScrolling = false
     private var initialY = 0f
-
 
     /**
      * Check if the event is from a stylus rather than a finger.

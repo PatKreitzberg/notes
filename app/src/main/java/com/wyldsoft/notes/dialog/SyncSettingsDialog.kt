@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+
 import com.wyldsoft.notes.sync.SyncFrequency
 import com.wyldsoft.notes.sync.SyncManager
 import com.wyldsoft.notes.sync.SyncState
