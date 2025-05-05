@@ -11,6 +11,7 @@ import com.wyldsoft.notes.gesture.GestureHandler
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.sync.DriveServiceWrapper
 import com.wyldsoft.notes.sync.SyncManager
+import com.wyldsoft.notes.views.PageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -18,6 +19,24 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 class NotesApp : Application(), Configuration.Provider {
     // Application-level coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob())
+
+    // activepage stuff added to get undo/redo functions to GestureHandler
+    private var _activePageId: String? = null
+
+    var activePageView: PageView? = null
+
+    fun setActivePage(page: PageView) {
+        activePageView = page
+        _activePageId = page.id
+    }
+
+    fun setActivePageId(pageId: String) {
+        _activePageId = pageId
+    }
+
+    fun getActivePageId(): String? {
+        return _activePageId
+    }
 
     // Database instance
     private lateinit var database: NotesDatabase

@@ -65,9 +65,21 @@ class PageView(
                 launch { persistBitmap() }
             }
         }
+        // Register as the active page
+        (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.setActivePageId(id)
+        (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.setActivePage(this)
 
         windowedCanvas.drawColor(Color.WHITE)
     }
+
+    fun deactivate() {
+        val app = context.applicationContext as? com.wyldsoft.notes.NotesApp
+        if (app?.activePageView?.id == id) {
+            app.activePageView = null
+            app.setActivePageId("")
+        }
+    }
+
 
     fun initializeViewportTransformer(
         context: Context,

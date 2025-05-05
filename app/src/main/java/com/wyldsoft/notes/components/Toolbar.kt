@@ -71,8 +71,6 @@ fun Toolbar(
     var haveStrokePanelRect by remember { mutableStateOf(false) }
     val EraserIcon = ImageVector.vectorResource(R.drawable.eraser)
 
-    // ... rest of the Toolbar implementation
-
     fun removeStrokeOptionPanelRect() {
         state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
         isStrokeSelectionOpen = false

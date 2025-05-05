@@ -135,11 +135,11 @@ class GestureHandler(
             }
             GestureAction.UNDO -> {
                 println("Executing action: Undo")
-                // Implement undo logic
+                performUndoRedoAction(true)
             }
             GestureAction.REDO -> {
                 println("Executing action: Redo")
-                // Implement redo logic
+                performUndoRedoAction(false)
             }
             GestureAction.ZOOM_IN -> {
                 println("Executing action: Zoom In")
@@ -237,9 +237,55 @@ class GestureHandler(
         gestureActions[GestureType.SINGLE_FINGER_TRIPLE_TAP] = GestureAction.NONE
         gestureActions[GestureType.TWO_FINGER_DOUBLE_TAP] = GestureAction.UNDO
         gestureActions[GestureType.TWO_FINGER_TRIPLE_TAP] = GestureAction.REDO
-        gestureActions[GestureType.THREE_FINGER_DOUBLE_TAP] = GestureAction.SWITCH_MODE_DRAW
-        gestureActions[GestureType.THREE_FINGER_TRIPLE_TAP] = GestureAction.SWITCH_MODE_ERASE
-        gestureActions[GestureType.FOUR_FINGER_DOUBLE_TAP] = GestureAction.ZOOM_IN
-        gestureActions[GestureType.FOUR_FINGER_TRIPLE_TAP] = GestureAction.ZOOM_OUT
+        gestureActions[GestureType.THREE_FINGER_DOUBLE_TAP] = GestureAction.NONE
+        gestureActions[GestureType.THREE_FINGER_TRIPLE_TAP] = GestureAction.NONE
+        gestureActions[GestureType.FOUR_FINGER_DOUBLE_TAP] = GestureAction.NONE
+        gestureActions[GestureType.FOUR_FINGER_TRIPLE_TAP] = GestureAction.NONE
+    }
+
+    private fun performUndoRedoAction(isUndo: Boolean) {
+        coroutineScope.launch {
+            try {
+                // Get the app instance
+                val app = context.applicationContext as? com.wyldsoft.notes.NotesApp ?: return@launch
+
+                // Get the active page ID
+                val activePageId = app.getActivePageId() ?: return@launch
+
+                // Get the history manager for the page
+                val historyManager = app.historyRepository.getHistoryManager(activePageId)
+
+                // Check if we have a valid history manager
+                if (historyManager == null) {
+                    println("Cannot perform undo/redo: No history manager for page $activePageId")
+                    return@launch
+                }
+
+                // Get the page view for this page ID (this is a bit more complex)
+                // For a cleaner implementation, NotesApp could also track the PageView instance
+                // But for now, we'll just use the history manager
+
+                // Create a new DrawingManager with the history manager
+                val drawingManager = com.wyldsoft.notes.classes.drawing.DrawingManager(
+                    page = app.activePageView ?: return@launch,
+                    historyManager = historyManager
+                )
+
+                // Perform the action
+                val success = if (isUndo) drawingManager.undo() else drawingManager.redo()
+
+                // If successful, emit an event to refresh the UI
+                if (success) {
+                    com.wyldsoft.notes.classes.drawing.DrawingManager.undoRedoPerformed.emit(Unit)
+                    com.wyldsoft.notes.classes.drawing.DrawingManager.refreshUi.emit(Unit)
+                    println("Successfully performed ${if (isUndo) "undo" else "redo"} operation")
+                } else {
+                    println("No action to ${if (isUndo) "undo" else "redo"}")
+                }
+            } catch (e: Exception) {
+                println("Error performing ${if (isUndo) "undo" else "redo"}: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 }
