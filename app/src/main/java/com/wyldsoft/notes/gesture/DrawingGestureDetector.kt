@@ -24,7 +24,7 @@ class DrawingGestureDetector(
     // Minimum distance required for a swipe gesture in dp
     private val SWIPE_THRESHOLD_DP = 50.dp
 
-
+    private val SCROLL_THRESHOLD = convertDpToPixel(10.dp, context)
 
     // Minimum velocity required for a swipe gesture
     private val SWIPE_VELOCITY_THRESHOLD = 100
@@ -44,152 +44,12 @@ class DrawingGestureDetector(
     private var isInGesture = false
     private var gestureStartTime = 0L
     private var maxPointerCount = 0
-    private var lastGestureEndTime = 0L
     private var tapCount = 0
-    private var lastTapFingerCount = 0
     private var countedFirstTap = false
+    private var lastTouchY = 0f
+    private var isScrolling = false
+    private var initialY = 0f
 
-    // Track whether we're currently in a scale gesture to avoid conflicting with other gestures
-    private var isScaling = false
-
-//    // Android's built-in gesture detector for basic gestures
-//    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-//        override fun onDown(e: MotionEvent): Boolean {
-//            // Only handle single finger gestures with GestureDetector
-//            // Multi-finger gestures will be handled separately
-//            println("gesture: onDown")
-//            if (e.pointerCount > 1 || isStylusEvent(e)) {
-//                return false
-//            }
-//            return true
-//        }
-//
-//        override fun onDoubleTap(e: MotionEvent): Boolean {
-//            println("gesture: onDoubleTap")
-//            // Ignore stylus inputs
-//            if (isStylusEvent(e)) {
-//                return false
-//            }
-//
-//            // Don't trigger double tap during scaling
-//            if (isScaling) {
-//                return false
-//            }
-//
-//            // Only handle single finger double taps with GestureDetector
-//            if (e.pointerCount == 1) {
-//                onGestureDetected("Double tap detected")
-//                return true
-//            }
-//            return false
-//        }
-//
-//        override fun onFling(
-//            e1: MotionEvent?,
-//            e2: MotionEvent,
-//            velocityX: Float,
-//            velocityY: Float
-//        ): Boolean {
-//            println("gesture: onFling")
-//            if (e1 == null) return false
-//
-//            // Ignore stylus inputs
-//            if (isStylusEvent(e1) || isStylusEvent(e2)) {
-//                return false
-//            }
-//
-//            // Don't trigger fling during scaling
-//            if (isScaling) {
-//                return false
-//            }
-//
-//            val diffY = e2.y - e1.y
-//            val diffX = e2.x - e1.x
-//
-//            // Check if the movement is more vertical than horizontal
-//            if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
-//                if (Math.abs(diffY) > swipeThreshold) {
-//                    if (diffY > 0) {
-//                        // Swipe down - don't show notification for common navigation
-//                        onGestureDetected("Swipe down detected")
-//                    } else {
-//                        // Swipe up - don't show notification for common navigation
-//                        onGestureDetected("Swipe up detected")
-//                    }
-//                    return true
-//                }
-//            }
-//            // Check if the movement is more horizontal than vertical
-//            else if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
-//                if (Math.abs(diffX) > swipeThreshold) {
-//                    if (diffX > 0) {
-//                        // Swipe right
-//                        onGestureDetected("Swipe right detected")
-//                    } else {
-//                        // Swipe left
-//                        onGestureDetected("Swipe left detected")
-//                    }
-//                    return true
-//                }
-//            }
-//
-//            return false
-//        }
-//
-//        override fun onScroll(
-//            e1: MotionEvent?,
-//            e2: MotionEvent,
-//            distanceX: Float,
-//            distanceY: Float
-//        ): Boolean {
-//            println("gesture: onScroll: Native onScroll")
-//            if (e1 == null) return false
-//
-//            // Ignore stylus inputs
-//            if (isStylusEvent(e1) || isStylusEvent(e2)) {
-//                return false
-//            }
-//
-//            // Don't handle scroll during scaling
-//            if (isScaling) {
-//                return false
-//            }
-//
-//            // If primarily vertical motion, treat as vertical scroll
-//            if (Math.abs(distanceY) > Math.abs(distanceX) * 1.5f) {
-//                // Note: distanceY is inverted (positive means scrolling up)
-//                // NEW: Send the actual distance as part of the message
-//                onGestureDetected("Scroll:${distanceY}")
-//
-//                viewportTransformer.scroll(distanceY, false)
-//                return true
-//            }
-//
-//            return false
-//        }
-//    })
-
-//    // Scale detector for pinch zoom
-//    private val scaleGestureDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-//        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-//            println("gesture: onScaleBegin")
-//            isScaling = true
-//            onScaleBegin(detector.focusX, detector.focusY)
-//            return true
-//        }
-//
-//        override fun onScale(detector: ScaleGestureDetector): Boolean {
-//            println("gesture: onScale")
-//            onScale(detector.scaleFactor)
-//            return true
-//        }
-//
-//        override fun onScaleEnd(detector: ScaleGestureDetector) {
-//            println("gesture: onScaleEnd")
-//            isScaling = false
-//            onScaleEnd()
-//        }
-//    })
 
     /**
      * Check if the event is from a stylus rather than a finger.
@@ -227,9 +87,24 @@ class DrawingGestureDetector(
 
         // Handle multi-finger gestures first, before delegating to other detectors
         when (action) {
+            MotionEvent.ACTION_MOVE -> {
+                if (!isScrolling) {
+                    var deltaY = initialY - event.y
+                    if (kotlin.math.abs(deltaY) > SCROLL_THRESHOLD) {
+                        isScrolling = true
+                        viewportTransformer.scroll(deltaY, true)
+                        lastTouchY = event.y
+                    }
+                } else {
+                    var deltaY = lastTouchY - event.y
+                    viewportTransformer.scroll(deltaY, true)
+                    lastTouchY = event.y
+                }
+            }
             MotionEvent.ACTION_DOWN -> {
                 // First finger down - start tracking a new gesture
-
+                lastTouchY = event.y
+                initialY = event.y
                 if (!isInGesture) {
                     gestureStartTime = currentTime
                     tapCount++
@@ -241,25 +116,20 @@ class DrawingGestureDetector(
 
                 isInGesture = true
                 maxPointerCount = 1
-                println("ACTION_DOWN: Starting new gesture")
             }
 
             MotionEvent.ACTION_POINTER_DOWN -> {
                 // Additional finger down - update max pointer count
                 stopTapTimer() // don't emit gesture from earlier tap
                 val pointerCount = event.pointerCount
-                println("ACTION_POINTER_DOWN: Pointer count: $pointerCount")
-
                 if (isInGesture) {
                     // Always update max pointer count for this gesture
                     maxPointerCount = Math.max(maxPointerCount, pointerCount)
-                    println("Updated max pointer count: $maxPointerCount")
                 }
             }
 
             MotionEvent.ACTION_POINTER_UP -> {
                 // One finger up but others remain
-                println("ACTION_POINTER_UP: Pointer count remaining: ${event.pointerCount - 1}")
                 // Continue tracking the gesture, don't reset anything
             }
 
@@ -278,12 +148,10 @@ class DrawingGestureDetector(
     }
 
     private fun stopTapTimer() {
-        //println("gesture: stopTapTimer")
         tapTimer?.cancel()
     }
 
     private fun startTapTimer() {
-        // println("gesture: startTapTimer")
         tapTimer?.cancel() // Cancel existing timer before starting a new one
         tapTimer = object : CountDownTimer(TAP_TIMEOUT, 100) {
             override fun onTick(millisUntilFinished: Long) {
@@ -291,7 +159,6 @@ class DrawingGestureDetector(
             }
 
             override fun onFinish() {
-                //println("gesture: tap timer FINISHED tapCount $tapCount")
                 if (tapCount == 2) {
                     handleMultiFingerDoubleTap(maxPointerCount)
                 } else if (tapCount > 2){
@@ -303,28 +170,22 @@ class DrawingGestureDetector(
     }
 
     private fun actionUpOrActionCancel(event: MotionEvent, isActionUp: Boolean, currentTime: Long) {
+        isScrolling = false
         // Last finger up - process the complete gesture
-        println("gesture: ACTION_UP: All fingers up, max was: $maxPointerCount is act4ion up? $isActionUp")
         if (isInGesture) {
-            //println("gesture: actionUpOrActionCancel isInGesture")
             val timeNow = System.currentTimeMillis()
-            //println("gesture: times; $timeNow   $gestureStartTime")
 
             val isNotQuickTap = timeNow - gestureStartTime >FINGER_CONTACT_WINDOW
             // want to make sure it is not just another finger so we take time measurement
             if (isNotQuickTap) {
                 tapCount++ // they tapped again
-                println("gesture: increase tapCount to $tapCount")
                 // wait to see if they tap again
                 startTapTimer()
             }
-        } else{
-            println("gesture: actionUpOrActionCancel NOT IN GESTURE")
         }
     }
 
     private fun resetMultiTap() {
-        println("gesture: resetMultiTap")
         tapCount = 0
         isInGesture = false
         maxPointerCount = 0
@@ -355,5 +216,4 @@ class DrawingGestureDetector(
             // Add more cases if needed
         }
     }
-
 }
