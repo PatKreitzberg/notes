@@ -51,14 +51,18 @@ class HistoryManager(
      * Loads history from the database
      */
     private suspend fun loadHistoryFromDatabase() {
+        println("history: loadHistoryFromDatabase")
         try {
             val actions = historyActionDao.getActionsForNote(noteId)
+            println("history: actions are $actions")
 
             if (actions.isNotEmpty()) {
+                println("history: Actions not empty")
                 // Convert database entities to history actions
                 val historyActions = actions.map { entity ->
                     deserializeAction(entity)
                 }
+                println("history: historyActions ${historyActions}")
 
                 // Add to undo stack in order
                 undoStack.clear()
@@ -72,7 +76,7 @@ class HistoryManager(
                 Log.d(TAG, "Loaded ${actions.size} actions from database for note $noteId")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading history from database: ${e.message}", e)
+            Log.e(TAG, "history: Error loading history from database: ${e.message}", e)
         }
     }
 
@@ -92,10 +96,12 @@ class HistoryManager(
 
         // Save to database (limiting to maxStoredActions)
         coroutineScope.launch {
+            println("history: try and save to database")
             try {
                 // Save this action
                 val entity = serializeAction(action)
                 historyActionDao.insertAction(entity)
+                println("history: inserted activity $entity")
 
                 // Clear redoable actions from database
                 historyActionDao.deleteActionsAboveSequence(noteId, currentSequence)
@@ -161,6 +167,7 @@ class HistoryManager(
      * Updates the state of the history manager
      */
     private fun updateState() {
+        println("Update state undoStack.isNotEmpty() ${undoStack.isNotEmpty()}")
         _canUndo.value = undoStack.isNotEmpty()
         _canRedo.value = redoStack.isNotEmpty()
     }
@@ -169,7 +176,12 @@ class HistoryManager(
      * Serializes an action to a database entity
      */
     private fun serializeAction(action: HistoryAction): HistoryActionEntity {
-        val json = Json.encodeToString(action.data)
+        val jsonConfig = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
+
+        val json = jsonConfig.encodeToString(action.data)
 
         return HistoryActionEntity(
             id = action.id,
@@ -198,15 +210,21 @@ class HistoryManager(
      * Deserializes action data based on action type
      */
     private fun deserializeActionData(actionType: String, actionData: String): HistoryActionData {
+        // Create a JSON configuration that ignores unknown keys
+        val jsonConfig = Json {
+            ignoreUnknownKeys = true
+            isLenient = true  // Add some extra tolerance for parsing
+        }
+
         return when (ActionType.fromString(actionType)) {
             ActionType.ADD_STROKES -> {
-                Json.decodeFromString<StrokeActionData>(actionData)
+                jsonConfig.decodeFromString<StrokeActionData>(actionData)
             }
             ActionType.DELETE_STROKES -> {
-                Json.decodeFromString<StrokeActionData>(actionData)
+                jsonConfig.decodeFromString<StrokeActionData>(actionData)
             }
             ActionType.MOVE_STROKES -> {
-                Json.decodeFromString<MoveActionData>(actionData)
+                jsonConfig.decodeFromString<MoveActionData>(actionData)
             }
         }
     }
@@ -288,6 +306,13 @@ data class SerializableStroke(
                 updatedAtMillis = stroke.updatedAt.time,
                 createdScrollY = stroke.createdScrollY
             )
+        }
+
+        private val TAG = "history:"
+        // Add this JSON configuration
+        private val jsonConfig = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
         }
     }
 
