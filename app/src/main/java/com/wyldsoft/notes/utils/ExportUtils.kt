@@ -124,8 +124,13 @@ private fun exportPaginatedPdf(
     // Skip empty pages - only create pages that have strokes
     for ((pageIndex, pageStrokes) in strokesByPage) {
         // Create a new PDF page for each paginated page with content
-        val pageInfo = PdfDocument.PageInfo.Builder(paperWidth, paperHeight, pageIndex + 1).create()
+        val dimInPostScript = getPaperDimensionsInPostScript(paperSize)
+        val scaleX = (dimInPostScript.first.toFloat())/(paperWidth.toFloat())
+        val scaleY = (dimInPostScript.second.toFloat())/(paperHeight.toFloat())
+
+        val pageInfo = PdfDocument.PageInfo.Builder((paperWidth*scaleX).toInt(), (paperHeight*scaleY).toInt(), pageIndex + 1).create()
         val page = document.startPage(pageInfo)
+        page.canvas.scale(scaleX, scaleY)
         val canvas = page.canvas
 
         // Fill with white background
@@ -147,6 +152,10 @@ private fun exportPaginatedPdf(
         for (stroke in pageStrokes) {
             drawStrokeOnCanvas(canvas, stroke, pageTop, paperWidth.toFloat())
         }
+
+        println("screen: Scaling canvas after ${page.canvas.width} ${page.canvas.height}")
+
+        println("screen: Scaling canvas after ${page.canvas.width} ${page.canvas.height}")
 
         // Finish the page
         document.finishPage(page)
@@ -271,11 +280,6 @@ private fun getPaperDimensionsInPixels(context: Context, paperSize: PaperSize): 
     return when (paperSize) {
         PaperSize.LETTER -> {
             // Letter size: 8.5" x 11"
-//            val letterWidthDp = 8.5f * 96f
-//            val letterHeightDp = 11f * 96f
-//            val widthPx = convertDpToPixel(letterWidthDp.dp, context).toInt()
-//            val heightPx = convertDpToPixel(letterHeightDp.dp, context).toInt()
-
             val heightToWidthRatio = (11.0f)/(8.5f)
             val widthPx = SCREEN_WIDTH
             val heightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt()
@@ -285,12 +289,6 @@ private fun getPaperDimensionsInPixels(context: Context, paperSize: PaperSize): 
         }
         PaperSize.A4 -> {
             // A4 size: 210mm x 297mm (8.27" x 11.69")
-//            val a4WidthDp = 8.27f * 96f
-//            val a4HeightDp = 11.69f * 96f
-//            val widthPx = convertDpToPixel(a4WidthDp.dp, context).toInt()
-//            val heightPx = convertDpToPixel(a4HeightDp.dp, context).toInt()
-//            println("screen: A4 $widthPx $heightPx")
-//
             val heightToWidthRatio = 210.0f / 297.0f
             val widthPx = SCREEN_WIDTH
             val heightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt()
@@ -298,6 +296,36 @@ private fun getPaperDimensionsInPixels(context: Context, paperSize: PaperSize): 
         }
     }
 }
+
+private fun getPaperDimensionsInPostScript(paperSize: PaperSize): Pair<Int, Int> {
+    return when (paperSize) {
+        PaperSize.LETTER -> {
+            // Letter size: 8.5" x 11"
+            val heightToWidthRatio = (11.0f)/(8.5f)
+            val widthPx = SCREEN_WIDTH
+            val heightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt()
+            val inchesPerPixel = (8.50f/widthPx)
+            val postScriptPerInch = 72.0f
+            val pxToPostScriptRatio = inchesPerPixel*postScriptPerInch
+
+            println("screen: letter $widthPx $heightPx")
+            Pair((widthPx*pxToPostScriptRatio).toInt(), (heightPx*pxToPostScriptRatio).toInt())
+        }
+        PaperSize.A4 -> {
+            // A4 size: 210mm x 297mm (8.27" x 11.69")
+            val heightToWidthRatio = 210.0f / 297.0f
+            val widthPx = SCREEN_WIDTH
+            val heightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt()
+            val inchesPerPixel = (8.27f/widthPx)
+            val postScriptPerInch = 72.0f
+            val pxToPostScriptRatio = inchesPerPixel*postScriptPerInch
+
+            println("screen: letter $widthPx $heightPx")
+            Pair((widthPx*pxToPostScriptRatio).toInt(), (heightPx*pxToPostScriptRatio).toInt())
+        }
+    }
+}
+
 
 // Draw stroke functions - copied from PageView for consistent rendering
 private fun drawBallPenStroke(
