@@ -29,6 +29,8 @@ import com.wyldsoft.notes.utils.noRippleClickable
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.wyldsoft.notes.SCREEN_WIDTH
+import com.wyldsoft.notes.SCREEN_HEIGHT
 
 @ExperimentalFoundationApi
 @Composable
@@ -127,7 +129,7 @@ fun HomeView(
                     // Create a new page first
                     val pageId = java.util.UUID.randomUUID().toString()
 
-                    noteRepository.createNote(pageId, title, 1000, 1500)
+                    noteRepository.createNote(pageId, title, SCREEN_WIDTH, SCREEN_HEIGHT)
 
                     // Add the page to the selected notebook
                     pageNotebookRepository.addPageToNotebook(pageId, selectedNotebookId!!)

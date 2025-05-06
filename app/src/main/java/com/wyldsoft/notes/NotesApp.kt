@@ -16,6 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
+
+
+
 class NotesApp : Application(), Configuration.Provider {
     // Application-level coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob())
@@ -24,6 +27,8 @@ class NotesApp : Application(), Configuration.Provider {
     private var _activePageId: String? = null
 
     var activePageView: PageView? = null
+
+
 
     fun setActivePage(page: PageView) {
         activePageView = page

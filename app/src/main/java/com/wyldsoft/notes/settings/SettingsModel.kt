@@ -1,10 +1,6 @@
 // Update app/src/main/java/com/wyldsoft/notes/settings/SettingsModel.kt
 package com.wyldsoft.notes.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-
 enum class PaperSize {
     LETTER, A4
 }

@@ -39,6 +39,11 @@ import com.wyldsoft.notes.components.ConflictResolutionDialog
 import com.wyldsoft.notes.sync.Resolution
 import com.wyldsoft.notes.views.Router
 import kotlinx.coroutines.launch
+import com.onyx.android.sdk.api.device.epd.EpdController
+
+
+var SCREEN_WIDTH = EpdController.getEpdHeight().toInt()
+var SCREEN_HEIGHT = EpdController.getEpdWidth().toInt()
 
 @ExperimentalAnimationApi
 @ExperimentalComposeUiApi
@@ -54,8 +59,11 @@ class MainActivity : ComponentActivity() {
         app = application as NotesApp
 
         // Initialize screen dimensions if needed
-        val screenWidth = resources.displayMetrics.widthPixels
-        val screenHeight = resources.displayMetrics.heightPixels
+        if (SCREEN_WIDTH == 0) {
+            SCREEN_WIDTH = resources.displayMetrics.widthPixels
+            SCREEN_HEIGHT = resources.displayMetrics.heightPixels
+        }
+        println("screen: width x height $SCREEN_WIDTH $SCREEN_HEIGHT")
 
         val snackState = SnackState()
         snackState.registerGlobalSnackObserver()

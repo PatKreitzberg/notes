@@ -1,10 +1,11 @@
-// app/src/main/java/com/wyldsoft/notes/components/SettingsDialog.kt
+// app/src/main/java/com/wyldsoft/notes/dialog/SettingsDialog.kt
 package com.wyldsoft.notes.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,17 +18,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,16 +48,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
+import com.wyldsoft.notes.classes.SnackConf
+import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.settings.PaperSize
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.settings.TemplateType
+import com.wyldsoft.notes.utils.exportPageToJpeg
+import com.wyldsoft.notes.utils.exportPageToPdf
+import com.wyldsoft.notes.utils.exportPageToPng
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsDialog(
     settingsRepository: SettingsRepository,
     currentNoteName: String,
-    currentNoteId: String, // Add note ID
+    currentNoteId: String,
     onUpdateViewportTransformer: (Boolean) -> Unit,
     onUpdatePageDimensions: (PaperSize) -> Unit,
     onUpdateTemplate: (TemplateType) -> Unit,
@@ -61,7 +70,7 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val app = NotesApp.getApp(context) // Get application context
+    val app = NotesApp.getApp(context)
     val coroutineScope = rememberCoroutineScope()
     val settings = settingsRepository.getSettings()
 
@@ -72,6 +81,10 @@ fun SettingsDialog(
 
     var paperSizeExpanded by remember { mutableStateOf(false) }
     var templateExpanded by remember { mutableStateOf(false) }
+
+    // Export options state
+    var exportMenuExpanded by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
 
     // Add notebook management state
     var showNotebookSection by remember { mutableStateOf(false) }
@@ -84,7 +97,7 @@ fun SettingsDialog(
     val notebooksContainingPage = pageNotebookRepository.getNotebooksContainingPage(currentNoteId)
         .collectAsState(initial = emptyList())
 
-    // Track selected notebook IDs - FIX: Initialize with current notebooks correctly
+    // Track selected notebook IDs
     val selectedNotebookIds = remember(notebooksContainingPage.value) {
         mutableStateListOf<String>().apply {
             // Initialize with current notebooks
@@ -153,10 +166,17 @@ fun SettingsDialog(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = when (paperSize) {
-                    PaperSize.LETTER -> "Letter (8.5\" x 11\")"
-                    PaperSize.A4 -> "A4 (210mm x 297mm)"
-                })
+                Text(
+                    text = when (paperSize) {
+                        PaperSize.LETTER -> "Letter (8.5\" x 11\")"
+                        PaperSize.A4 -> "A4 (210mm x 297mm)"
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select paper size"
+                )
 
                 DropdownMenu(
                     expanded = paperSizeExpanded,
@@ -199,11 +219,18 @@ fun SettingsDialog(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = when (template) {
-                    TemplateType.BLANK -> "Blank"
-                    TemplateType.GRID -> "Grid"
-                    TemplateType.RULED -> "Ruled Lines"
-                })
+                Text(
+                    text = when (template) {
+                        TemplateType.BLANK -> "Blank"
+                        TemplateType.GRID -> "Grid"
+                        TemplateType.RULED -> "Ruled Lines"
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select template"
+                )
 
                 DropdownMenu(
                     expanded = templateExpanded,
@@ -246,6 +273,137 @@ fun SettingsDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Export options
+            Text(
+                text = "Export",
+                style = MaterialTheme.typography.subtitle1,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                Button(
+                    onClick = { exportMenuExpanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isExporting
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Export",
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = if (isExporting) "Exporting..." else "Export Note",
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (isExporting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .width(20.dp)
+                                .height(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Show export options"
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = exportMenuExpanded,
+                    onDismissRequest = { exportMenuExpanded = false },
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    DropdownMenuItem(onClick = {
+                        coroutineScope.launch {
+                            isExporting = true
+                            exportMenuExpanded = false
+                            try {
+                                val result = exportPageToPdf(context, currentNoteId)
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = result,
+                                        duration = 3000
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = "Error exporting to PDF: ${e.message}",
+                                        duration = 3000
+                                    )
+                                )
+                            } finally {
+                                isExporting = false
+                            }
+                        }
+                    }) {
+                        Text("Export to PDF")
+                    }
+
+                    DropdownMenuItem(onClick = {
+                        coroutineScope.launch {
+                            isExporting = true
+                            exportMenuExpanded = false
+                            try {
+                                val result = exportPageToPng(context, currentNoteId)
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = result,
+                                        duration = 3000
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = "Error exporting to PNG: ${e.message}",
+                                        duration = 3000
+                                    )
+                                )
+                            } finally {
+                                isExporting = false
+                            }
+                        }
+                    }) {
+                        Text("Export to PNG")
+                    }
+
+                    DropdownMenuItem(onClick = {
+                        coroutineScope.launch {
+                            isExporting = true
+                            exportMenuExpanded = false
+                            try {
+                                val result = exportPageToJpeg(context, currentNoteId)
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = result,
+                                        duration = 3000
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                SnackState.globalSnackFlow.emit(
+                                    SnackConf(
+                                        text = "Error exporting to JPEG: ${e.message}",
+                                        duration = 3000
+                                    )
+                                )
+                            } finally {
+                                isExporting = false
+                            }
+                        }
+                    }) {
+                        Text("Export to JPEG")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Notebooks Toggle
             Row(
                 modifier = Modifier
@@ -265,14 +423,13 @@ fun SettingsDialog(
                     style = MaterialTheme.typography.subtitle1,
                     modifier = Modifier.weight(1f)
                 )
-                Icon(
-                    imageVector = if (showNotebookSection)
-                        Icons.Default.Backup // Using as a "collapse" icon
-                    else
-                        Icons.Default.Backup, // Using as an "expand" icon
-                    contentDescription = if (showNotebookSection) "Collapse" else "Expand",
-                    tint = MaterialTheme.colors.primary
-                )
+                IconButton(onClick = { showNotebookSection = !showNotebookSection }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = if (showNotebookSection) "Collapse" else "Expand",
+                        tint = MaterialTheme.colors.primary
+                    )
+                }
             }
 
             // Notebook selection section
