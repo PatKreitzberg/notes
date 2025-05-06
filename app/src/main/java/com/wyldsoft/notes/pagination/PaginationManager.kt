@@ -10,6 +10,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.settings.PaperSize
+import com.wyldsoft.notes.SCREEN_WIDTH
+import com.wyldsoft.notes.SCREEN_HEIGHT
 
 
 /**
@@ -50,17 +52,27 @@ class PaginationManager(private val context: Context) {
         when (paperSize) {
             PaperSize.LETTER -> {
                 // Letter size: 8.5" x 11"
-                val letterWidthDp = 8.5f * 96f
-                val letterHeightDp = 11f * 96f
-                pageWidthPx = convertDpToPixel(letterWidthDp.dp, context)
-                pageHeightPx = convertDpToPixel(letterHeightDp.dp, context)
+//                val heightToWidthRatio = (11.0f)/(8.5f)
+//                val letterWidthDp = 8.5f * 96f
+//                val letterHeightDp = 11f * 96f
+//                pageWidthPx = SCREEN_WIDTH //convertDpToPixel(letterWidthDp.dp, context)
+//                pageHeightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt() //convertDpToPixel(letterHeightDp.dp, context)
+
+                val heightToWidthRatio = (11.0f)/(8.5f)
+                pageWidthPx = SCREEN_WIDTH.toFloat()
+                pageHeightPx = (SCREEN_WIDTH.toFloat()*heightToWidthRatio)
             }
             PaperSize.A4 -> {
                 // A4 size: 210mm x 297mm (8.27" x 11.69")
-                val a4WidthDp = 8.27f * 96f
-                val a4HeightDp = 11.69f * 96f
-                pageWidthPx = convertDpToPixel(a4WidthDp.dp, context)
-                pageHeightPx = convertDpToPixel(a4HeightDp.dp, context)
+//                val a4WidthDp = 8.27f * 96f
+//                val a4HeightDp = 11.69f * 96f
+//                pageWidthPx = convertDpToPixel(a4WidthDp.dp, context)
+//                pageHeightPx = convertDpToPixel(a4HeightDp.dp, context)
+
+                val heightToWidthRatio = (210.0f)/(297.0f)
+                pageWidthPx = SCREEN_WIDTH.toFloat()
+                pageHeightPx = (SCREEN_WIDTH.toFloat()*heightToWidthRatio)
+
             }
         }
     }
