@@ -1,4 +1,3 @@
-// app/src/main/java/com/wyldsoft/notes/sync/DriveServiceWrapper.kt
 package com.wyldsoft.notes.sync
 
 import android.content.Context

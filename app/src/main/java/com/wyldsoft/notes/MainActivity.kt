@@ -1,8 +1,6 @@
-// app/src/main/java/com/wyldsoft/notes/MainActivity.kt (updates)
 package com.wyldsoft.notes
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -63,7 +60,6 @@ class MainActivity : ComponentActivity() {
             SCREEN_WIDTH = resources.displayMetrics.widthPixels
             SCREEN_HEIGHT = resources.displayMetrics.heightPixels
         }
-        println("screen: width x height $SCREEN_WIDTH $SCREEN_HEIGHT")
 
         val snackState = SnackState()
         snackState.registerGlobalSnackObserver()

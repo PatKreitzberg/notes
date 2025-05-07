@@ -22,18 +22,13 @@ class PaginationManager(private val context: Context) {
     // Pagination state
     var isPaginationEnabled by mutableStateOf(true)
 
-    // Page dimensions in dp (American letter size: 8.5" x 11")
-    // 1 inch = 96dp (standard Android conversion)
-    private val pageWidthDp = 8.5f * 96f
-    private val pageHeightDp = 11f * 96f
     private var pageWidthPx: Float = 0f
     var pageHeightPx: Float = 0f
     private val exclusionZoneHeightPx: Float
 
     // Exclusion zone properties
-    private val exclusionZoneHeightDp = 40.dp
+    private val exclusionZoneHeightDp = 10.dp
     val exclusionZoneColor = Color.rgb(173, 216, 230) // Light blue color
-
 
     init {
         // Initialize with Letter size by default
@@ -52,23 +47,12 @@ class PaginationManager(private val context: Context) {
         when (paperSize) {
             PaperSize.LETTER -> {
                 // Letter size: 8.5" x 11"
-//                val heightToWidthRatio = (11.0f)/(8.5f)
-//                val letterWidthDp = 8.5f * 96f
-//                val letterHeightDp = 11f * 96f
-//                pageWidthPx = SCREEN_WIDTH //convertDpToPixel(letterWidthDp.dp, context)
-//                pageHeightPx = (SCREEN_WIDTH*heightToWidthRatio).toInt() //convertDpToPixel(letterHeightDp.dp, context)
-
                 val heightToWidthRatio = (11.0f)/(8.5f)
                 pageWidthPx = SCREEN_WIDTH.toFloat()
                 pageHeightPx = (SCREEN_WIDTH.toFloat()*heightToWidthRatio)
             }
             PaperSize.A4 -> {
                 // A4 size: 210mm x 297mm (8.27" x 11.69")
-//                val a4WidthDp = 8.27f * 96f
-//                val a4HeightDp = 11.69f * 96f
-//                pageWidthPx = convertDpToPixel(a4WidthDp.dp, context)
-//                pageHeightPx = convertDpToPixel(a4HeightDp.dp, context)
-
                 val heightToWidthRatio = (210.0f)/(297.0f)
                 pageWidthPx = SCREEN_WIDTH.toFloat()
                 pageHeightPx = (SCREEN_WIDTH.toFloat()*heightToWidthRatio)

@@ -406,7 +406,7 @@ suspend fun exportPageToPng(context: Context, pageId: String): String = withCont
         val bitmap = drawPageBitmap(context, pageId)
 
         // Save the PNG using the bitmap
-        val result = saveFile(context, "notable-page-${pageId}", "png") { outputStream ->
+        val result = saveFile(context, "notes-page-${pageId}", "png") { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
         }
 
@@ -436,7 +436,7 @@ suspend fun exportPageToJpeg(context: Context, pageId: String): String = withCon
         val bitmap = drawPageBitmap(context, pageId)
 
         // Save the JPEG using the bitmap
-        val result = saveFile(context, "notable-page-${pageId}", "jpg") { outputStream ->
+        val result = saveFile(context, "notes-page-${pageId}", "jpg") { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
         }
 
@@ -531,7 +531,7 @@ private suspend fun saveFile(
             put(MediaStore.Files.FileColumns.MIME_TYPE, mimeType)
             put(
                 MediaStore.Files.FileColumns.RELATIVE_PATH,
-                Environment.DIRECTORY_DOCUMENTS + "/Notable/" + dictionary
+                Environment.DIRECTORY_DOCUMENTS + "/Notes/" + dictionary
             )
         }
 
