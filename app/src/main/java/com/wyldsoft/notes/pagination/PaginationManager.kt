@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.settings.PaperSize
+import com.wyldsoft.notes.utils.Stroke
 import com.wyldsoft.notes.SCREEN_WIDTH
 import com.wyldsoft.notes.SCREEN_HEIGHT
 
@@ -24,7 +25,7 @@ class PaginationManager(private val context: Context) {
 
     private var pageWidthPx: Float = 0f
     var pageHeightPx: Float = 0f
-    private val exclusionZoneHeightPx: Float
+    val exclusionZoneHeightPx: Float
 
     // Exclusion zone properties
     private val exclusionZoneHeightDp = 10.dp
@@ -163,5 +164,104 @@ class PaginationManager(private val context: Context) {
      */
     fun getPageNumber(pageIndex: Int): Int {
         return pageIndex + 1
+    }
+
+    /**
+     * Inserts a new page at the specified position
+     * @param pageNumber The page number at which to insert (1-based)
+     * @return List of stroke IDs that were affected by the insertion
+     */
+    fun insertPageAt(pageNumber: Int, strokes: List<Stroke>): List<String> {
+        if (!isPaginationEnabled) return emptyList()
+
+        // Validate page number
+        val maxPageIndex = getMaxPageIndex()
+        val pageIndex = pageNumber - 1 // Convert to 0-based index
+
+        if (pageIndex < 0 || pageIndex > maxPageIndex) {
+            return emptyList() // Invalid page number
+        }
+
+        // Calculate Y position where page will be inserted
+        val insertionY = getPageTopY(pageIndex)
+
+        // Calculate offset for strokes (page height + exclusion zone)
+        val pageOffset = pageHeightPx + exclusionZoneHeightPx
+
+        // Find strokes that need to be moved
+        val affectedStrokeIds = mutableListOf<String>()
+        val strokesToUpdate = strokes.filter { stroke ->
+            val isBelow = stroke.top >= insertionY
+            if (isBelow) affectedStrokeIds.add(stroke.id)
+            isBelow
+        }
+
+        // Update stroke positions
+        for (stroke in strokesToUpdate) {
+            stroke.top += pageOffset
+            stroke.bottom += pageOffset
+
+            // Update points
+            for (point in stroke.points) {
+                point.y += pageOffset
+            }
+        }
+
+        return affectedStrokeIds
+    }
+
+    /**
+     * Gets the highest page index in the document (0-based)
+     */
+    fun getMaxPageIndex(): Int {
+        if (!isPaginationEnabled) return 0
+
+        // Calculate based on document height
+        val totalDocumentHeight = documentHeight ?: 0f
+        return (totalDocumentHeight / (pageHeightPx + exclusionZoneHeightPx)).toInt()
+    }
+
+    /**
+     * Gets the total number of pages (1-based)
+     */
+//    fun getTotalPageCount(): Int {
+//        return getMaxPageIndex() + 1
+//    }
+
+    /**
+     * Updates document height property
+     */
+    fun setDocumentHeight(height: Float) {
+        documentHeight = height
+    }
+
+    /**
+     * Gets the total number of pages (1-based)
+     */
+    fun getTotalPageCount(): Int {
+        if (!isPaginationEnabled) return 1
+
+        val totalDocumentHeight = documentHeight
+        val pageUnit = pageHeightPx + exclusionZoneHeightPx
+        return ((totalDocumentHeight / pageUnit) + 1).toInt()
+    }
+
+    /**
+     * Calculates the offset needed to insert a page
+     * @return The Y-offset (page height + exclusion zone)
+     */
+    fun getPageInsertionOffset(): Float {
+        return pageHeightPx + exclusionZoneHeightPx
+    }
+
+    /**
+     * Gets the Y coordinate where a page should be inserted
+     * @param pageNumber The 1-based page number before which to insert
+     * @return The Y coordinate for insertion
+     */
+    fun getInsertPosition(pageNumber: Int): Float {
+        // Convert to 0-based index
+        val pageIndex = pageNumber - 1
+        return getPageTopY(pageIndex)
     }
 }

@@ -5,6 +5,7 @@ import android.graphics.RectF
 import com.wyldsoft.notes.utils.ActionType
 import com.wyldsoft.notes.utils.HistoryAction
 import com.wyldsoft.notes.utils.HistoryManager
+import com.wyldsoft.notes.utils.InsertPageActionData
 import com.wyldsoft.notes.utils.MoveActionData
 import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.utils.Pen
@@ -288,6 +289,38 @@ class DrawingManager(
                 // Then add back the original ones
                 page.addStrokes(originalStrokes)
             }
+
+            ActionType.INSERT_PAGE -> {
+                // For inserted pages, undo by shifting strokes back up
+                val data = action.data as InsertPageActionData
+
+                // Find strokes that were affected
+                val affectedStrokes = page.strokes.filter { it.id in data.affectedStrokeIds }
+
+                // Move strokes back up
+                for (stroke in affectedStrokes) {
+                    stroke.top -= data.pageOffset
+                    stroke.bottom -= data.pageOffset
+
+                    // Update points
+                    for (point in stroke.points) {
+                        point.y -= data.pageOffset
+                    }
+                }
+
+                // Update strokes in page
+                if (affectedStrokes.isNotEmpty()) {
+                    page.removeStrokes(data.affectedStrokeIds)
+                    page.addStrokes(affectedStrokes)
+                }
+
+                // Update document height
+                val paginationManager = page.viewportTransformer.getPaginationManager()
+                val newMaxPageIndex = paginationManager.getTotalPageCount() - 2 // -1 for 0-based, -1 for removed page
+                val newHeight = paginationManager.getPageBottomY(newMaxPageIndex.coerceAtLeast(0))
+                page.height = newHeight.toInt()
+                page.viewportTransformer.updateDocumentHeight(page.height)
+            }
         }
 
         // Force UI update
@@ -333,6 +366,38 @@ class DrawingManager(
                 // Then add the moved ones
                 page.addStrokes(movedStrokes)
             }
+
+            ActionType.INSERT_PAGE -> {
+                // For inserted pages, redo by shifting strokes down again
+                val data = action.data as InsertPageActionData
+
+                // Find strokes that were affected
+                val affectedStrokes = page.strokes.filter { it.id in data.affectedStrokeIds }
+
+                // Move strokes down
+                for (stroke in affectedStrokes) {
+                    stroke.top += data.pageOffset
+                    stroke.bottom += data.pageOffset
+
+                    // Update points
+                    for (point in stroke.points) {
+                        point.y += data.pageOffset
+                    }
+                }
+
+                // Update strokes in page
+                if (affectedStrokes.isNotEmpty()) {
+                    page.removeStrokes(data.affectedStrokeIds)
+                    page.addStrokes(affectedStrokes)
+                }
+
+                // Update document height
+                val paginationManager = page.viewportTransformer.getPaginationManager()
+                val newMaxPageIndex = paginationManager.getTotalPageCount() // No need to adjust for 0-based since we're adding a page
+                val newHeight = paginationManager.getPageBottomY(newMaxPageIndex - 1) // -1 for 0-based
+                page.height = newHeight.toInt()
+                page.viewportTransformer.updateDocumentHeight(page.height)
+            }
         }
 
         // Force UI update
@@ -340,7 +405,80 @@ class DrawingManager(
             undoRedoPerformed.emit(Unit)
             refreshUi.emit(Unit)
         }
-
         return true
+    }
+
+    /**
+     * Inserts a new page at the specified position
+     * @param pageNumber The 1-based page number before which to insert
+     * @return True if the operation was successful
+     */
+    fun insertPage(pageNumber: Int): Boolean {
+        try {
+            // Get pagination manager
+            val paginationManager = page.viewportTransformer.getPaginationManager()
+
+            // Validate page number
+            val totalPages = paginationManager.getTotalPageCount()
+            if (pageNumber < 1 || pageNumber > totalPages) {
+                return false
+            }
+
+            // Calculate insertion position
+            val insertPosition = paginationManager.getInsertPosition(pageNumber)
+
+            // Calculate offset
+            val pageOffset = paginationManager.getPageInsertionOffset()
+
+            // Find strokes that need to be moved
+            val affectedStrokeIds = mutableListOf<String>()
+            val strokesToUpdate = page.strokes.filter { stroke ->
+                val isBelow = stroke.top >= insertPosition
+                if (isBelow) affectedStrokeIds.add(stroke.id)
+                isBelow
+            }
+
+            // Move affected strokes down
+            for (stroke in strokesToUpdate) {
+                stroke.top += pageOffset
+                stroke.bottom += pageOffset
+
+                // Update points
+                for (point in stroke.points) {
+                    point.y += pageOffset
+                }
+            }
+
+            // Record in history for undo/redo
+            historyManager?.addAction(
+                HistoryAction(
+                    type = ActionType.INSERT_PAGE,
+                    data = InsertPageActionData(
+                        pageNumber = pageNumber,
+                        affectedStrokeIds = affectedStrokeIds,
+                        pageOffset = pageOffset
+                    )
+                )
+            )
+
+            // If strokes were affected, update them
+            if (strokesToUpdate.isNotEmpty()) {
+                // First remove them from the page
+                page.removeStrokes(affectedStrokeIds)
+
+                // Then add them back with updated positions
+                page.addStrokes(strokesToUpdate)
+            }
+
+            // Update document height
+            val newHeight = paginationManager.getPageBottomY(paginationManager.getTotalPageCount() - 1)
+            page.height = newHeight.toInt()
+            page.viewportTransformer.updateDocumentHeight(page.height)
+
+            return true
+        } catch (e: Exception) {
+            println("Error inserting page: ${e.message}")
+            return false
+        }
     }
 }

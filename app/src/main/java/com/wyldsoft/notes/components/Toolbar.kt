@@ -49,6 +49,8 @@ import android.graphics.drawable.VectorDrawable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import com.wyldsoft.notes.R
+import com.wyldsoft.notes.classes.SnackConf
+import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.views.PageView
 
 
@@ -329,7 +331,7 @@ fun Toolbar(
                     SettingsDialog(
                         settingsRepository = settingsRepository,
                         currentNoteName = noteTitle,
-                        currentNoteId = state.pageId,  // Pass the note ID
+                        currentNoteId = state.pageId,
                         onUpdateViewportTransformer = { isPaginationEnabled ->
                             viewportTransformer.updatePaginationState(isPaginationEnabled)
                         },
@@ -342,6 +344,26 @@ fun Toolbar(
                             }
                         },
                         onUpdateNoteName = onUpdateNoteName,
+                        onInsertPage = { pageNumber ->
+                            // Handle page insertion
+                            scope.launch {
+                                val drawingManager = DrawingManager(page, page.getHistoryManager())
+                                val success = drawingManager.insertPage(pageNumber)
+
+                                if (success) {
+                                    // Show notification
+                                    SnackState.globalSnackFlow.emit(
+                                        SnackConf(
+                                            text = "Page inserted before page $pageNumber",
+                                            duration = 3000
+                                        )
+                                    )
+
+                                    // Refresh UI
+                                    DrawingManager.refreshUi.emit(Unit)
+                                }
+                            }
+                        },
                         onDismiss = { showSettings = false; state.allowDrawingOnCanvas = true; println("Allow drawing") }
                     )
                 }

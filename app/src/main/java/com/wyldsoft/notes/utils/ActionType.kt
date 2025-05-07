@@ -7,7 +7,8 @@ package com.wyldsoft.notes.utils
 enum class ActionType(val key: String) {
     ADD_STROKES("ADD_STROKES"),
     DELETE_STROKES("DELETE_STROKES"),
-    MOVE_STROKES("MOVE_STROKES");
+    MOVE_STROKES("MOVE_STROKES"),
+    INSERT_PAGE("INSERT_PAGE");  // New action type for page insertion
 
     companion object {
         fun fromString(key: String): ActionType {

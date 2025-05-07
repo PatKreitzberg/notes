@@ -226,6 +226,9 @@ class HistoryManager(
             ActionType.MOVE_STROKES -> {
                 jsonConfig.decodeFromString<MoveActionData>(actionData)
             }
+            ActionType.INSERT_PAGE -> {
+                jsonConfig.decodeFromString<InsertPageActionData>(actionData)
+            }
         }
     }
 
@@ -374,6 +377,16 @@ data class SerializableStrokePoint(
         )
     }
 }
+
+/**
+ * Data for page insertion actions
+ */
+@kotlinx.serialization.Serializable
+data class InsertPageActionData(
+    val pageNumber: Int,
+    val affectedStrokeIds: List<String>,
+    val pageOffset: Float
+) : HistoryActionData
 
 /**
  * Represents a single action in the history

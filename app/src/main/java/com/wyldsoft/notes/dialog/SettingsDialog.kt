@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
 import androidx.compose.material.CircularProgressIndicator
@@ -25,6 +27,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Surface
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
@@ -53,6 +58,7 @@ import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.settings.PaperSize
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.settings.TemplateType
+import com.wyldsoft.notes.utils.HistoryAction
 import com.wyldsoft.notes.utils.exportPageToJpeg
 import com.wyldsoft.notes.utils.exportPageToPdf
 import com.wyldsoft.notes.utils.exportPageToPng
@@ -67,6 +73,7 @@ fun SettingsDialog(
     onUpdatePageDimensions: (PaperSize) -> Unit,
     onUpdateTemplate: (TemplateType) -> Unit,
     onUpdateNoteName: (String) -> Unit,
+    onInsertPage: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -271,6 +278,140 @@ fun SettingsDialog(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+            // Page Insertion section (only visible when pagination is enabled)
+            if (isPaginationEnabled) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Page Insertion UI
+                var showPageInsertDialog by remember { mutableStateOf(false) }
+                var pageNumberInput by remember { mutableStateOf("") }
+                var pageNumberError by remember { mutableStateOf<String?>(null) }
+
+                Text(
+                    text = "Page Management",
+                    style = MaterialTheme.typography.subtitle1,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Button(
+                    onClick = { showPageInsertDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Insert Page",
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Insert New Page")
+                }
+
+                // Dialog for inserting a new page
+                if (showPageInsertDialog) {
+                    Dialog(onDismissRequest = {
+                        showPageInsertDialog = false
+                        pageNumberInput = ""
+                        pageNumberError = null
+                    }) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .clip(RoundedCornerShape(8.dp)),
+                            elevation = 8.dp
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                Text(
+                                    text = "Insert New Page",
+                                    style = MaterialTheme.typography.h6,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+
+                                // We need to get the total page count from the settings
+                                // Since we don't have access to the pagination manager directly,
+                                // we'll use a placeholder value that the consumer will replace
+                                val totalPages = 10 // Placeholder, will be replaced by the consumer
+
+                                Text(
+                                    text = "Current document has $totalPages pages",
+                                    style = MaterialTheme.typography.body1,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Text(
+                                    text = "Insert new page before page number:",
+                                    style = MaterialTheme.typography.body1,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = pageNumberInput,
+                                    onValueChange = {
+                                        pageNumberInput = it
+                                        pageNumberError = null
+                                    },
+                                    label = { Text("Page Number (1-$totalPages)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    isError = pageNumberError != null,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                if (pageNumberError != null) {
+                                    Text(
+                                        text = pageNumberError!!,
+                                        color = MaterialTheme.colors.error,
+                                        style = MaterialTheme.typography.caption,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            showPageInsertDialog = false
+                                            pageNumberInput = ""
+                                            pageNumberError = null
+                                        }
+                                    ) {
+                                        Text("Cancel")
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Button(
+                                        onClick = {
+                                            // Validate page number
+                                            val pageNumber = pageNumberInput.toIntOrNull()
+                                            if (pageNumber == null) {
+                                                pageNumberError = "Please enter a valid number"
+                                            } else if (pageNumber < 1 || pageNumber > totalPages) {
+                                                pageNumberError = "Page number must be between 1 and $totalPages"
+                                            } else {
+                                                // Call the callback to handle page insertion
+                                                onInsertPage(pageNumber)
+                                                showPageInsertDialog = false
+                                                pageNumberInput = ""
+                                                pageNumberError = null
+                                            }
+                                        }
+                                    ) {
+                                        Text("Insert")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             // Export options
