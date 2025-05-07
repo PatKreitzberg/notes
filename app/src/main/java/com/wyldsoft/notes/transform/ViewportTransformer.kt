@@ -160,6 +160,8 @@ class ViewportTransformer(
      */
     fun updateDocumentHeight(newHeight: Int) {
         documentHeight = max(newHeight, viewHeight)
+        // Make sure to update pagination manager
+        paginationManager.setDocumentHeight(documentHeight.toFloat())
     }
 
     /**

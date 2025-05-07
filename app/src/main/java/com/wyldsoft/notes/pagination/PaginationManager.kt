@@ -23,6 +23,11 @@ class PaginationManager(private val context: Context) {
     // Pagination state
     var isPaginationEnabled by mutableStateOf(true)
 
+    private var _documentHeight: Float? = null
+    val documentHeight: Float
+        get() = _documentHeight ?: (1 * pageHeightPx) // Default to at least 2 pages worth of height if not set
+
+
     private var pageWidthPx: Float = 0f
     var pageHeightPx: Float = 0f
     val exclusionZoneHeightPx: Float
@@ -224,26 +229,19 @@ class PaginationManager(private val context: Context) {
     /**
      * Gets the total number of pages (1-based)
      */
-//    fun getTotalPageCount(): Int {
-//        return getMaxPageIndex() + 1
-//    }
+    fun getTotalPageCount(): Int {
+        if (!isPaginationEnabled) return 1
+
+        val pageUnit = pageHeightPx + exclusionZoneHeightPx
+        return ((documentHeight / pageUnit) + 1).toInt()
+    }
+
 
     /**
      * Updates document height property
      */
     fun setDocumentHeight(height: Float) {
-        documentHeight = height
-    }
-
-    /**
-     * Gets the total number of pages (1-based)
-     */
-    fun getTotalPageCount(): Int {
-        if (!isPaginationEnabled) return 1
-
-        val totalDocumentHeight = documentHeight
-        val pageUnit = pageHeightPx + exclusionZoneHeightPx
-        return ((totalDocumentHeight / pageUnit) + 1).toInt()
+        _documentHeight = height
     }
 
     /**
