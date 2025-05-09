@@ -14,6 +14,7 @@ import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.Stroke
 import com.wyldsoft.notes.history.StrokeActionData
 import com.wyldsoft.notes.utils.StrokePoint
+import io.shipbook.shipbooksdk.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -37,6 +38,7 @@ class DrawingManager(
         val undoRedoPerformed = MutableSharedFlow<Unit>()
     }
     private val strokeHistoryBatch = mutableListOf<String>()
+    val tag="DrawingManager:"
 
     private fun convertAndCreateBoundingBox(touchPoints: List<com.onyx.android.sdk.data.note.TouchPoint>, strokeSize: Float): RectF {
         val initialPoint = touchPoints.firstOrNull() ?: return RectF()
@@ -178,7 +180,9 @@ class DrawingManager(
         }
 
         val deletedStrokes = selectStrokesFromPath(page.strokes, outPath)
+        println("$tag deletedStrokes $deletedStrokes")
         val deletedStrokeIds = deletedStrokes.map { it.id }
+        println("$tag deletedStrokeIds $deletedStrokeIds")
 
         // Skip if no strokes to delete
         if (deletedStrokes.isEmpty()) return
@@ -210,31 +214,63 @@ class DrawingManager(
             )
         )
     }
-
+    
     private fun selectStrokesFromPath(strokes: List<Stroke>, path: android.graphics.Path): List<Stroke> {
         val bounds = RectF()
         path.computeBounds(bounds, true)
 
-        // Create region from path
-        val region = android.graphics.Region()
-        region.setPath(
-            path,
-            android.graphics.Region(
-                bounds.left.toInt(),
-                bounds.top.toInt(),
-                bounds.right.toInt(),
-                bounds.bottom.toInt()
-            )
-        )
-
+        // Instead of using Region.setPath, we'll check points against the path directly
         return strokes.filter {
             val strokeBounds = RectF(it.left, it.top, it.right, it.bottom)
-            strokeBounds.intersect(bounds)
+
+            // First check: bounding box intersection
+            val intersects = RectF.intersects(strokeBounds, bounds)
+
+            intersects
         }.filter {
-            it.points.any { point ->
-                region.contains(point.x.toInt(), point.y.toInt())
+            // Second check: points inside path
+            val containsPoint = it.points.any { point ->
+                // Check if the point is within the path
+                val bounds = RectF()
+                path.computeBounds(bounds, true)
+
+                var ret = true
+                // Quick check: if point is outside bounds, it's definitely not in path
+                if (point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom) {
+                    ret = false
+                }
+
+                // Use Path.contains for more accurate check
+                if (ret) {
+                    ret = path.isPointInPath(point.x, point.y)
+                }
+                ret
             }
+            containsPoint
         }
+    }
+
+
+
+    // Extension function for Path
+    private fun android.graphics.Path.isPointInPath(x: Float, y: Float): Boolean {
+        val bounds = RectF()
+        computeBounds(bounds, true)
+
+        // Create a temporary path for testing
+        val testPath = android.graphics.Path()
+
+        // Add a small circle around the test point
+        testPath.addCircle(x, y, 0.1f, android.graphics.Path.Direction.CW)
+
+        // Check if this small circle intersects with the path
+        val isInside = android.graphics.Path()
+        isInside.op(this, testPath, android.graphics.Path.Op.INTERSECT)
+
+        // If the result is not empty, the point is inside the path
+        val resultBounds = RectF()
+        isInside.computeBounds(resultBounds, true)
+        return !resultBounds.isEmpty
     }
 
     private fun getStrokeBounds(strokes: List<Stroke>): RectF {
