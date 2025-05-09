@@ -24,6 +24,7 @@ import com.wyldsoft.notes.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
 
 /**
  * Responsible for managing the page content and rendering.
@@ -62,6 +63,11 @@ class PageView(
         get() = _viewportTransformer ?: throw IllegalStateException("ViewportTransformer not initialized")
 
 
+    private val _visibleStrokes = mutableStateListOf<Stroke>()
+    val visibleStrokes: List<Stroke>
+        get() = _visibleStrokes.toList()
+
+
     init {
         coroutineScope.launch {
             saveTopic.debounce(1000).collect {
@@ -83,6 +89,16 @@ class PageView(
         }
     }
 
+    fun updateVisibleStrokes() {
+        _visibleStrokes.clear()
+
+        // Add strokes that intersect with the current viewport
+        strokes.forEach { stroke ->
+            if (isStrokeVisible(stroke)) {
+                _visibleStrokes.add(stroke)
+            }
+        }
+    }
 
     fun initializeViewportTransformer(
         context: Context,
@@ -117,6 +133,9 @@ class PageView(
                     viewport.bottom.toInt()
                 )
 
+                println("viewport changed call updateVisibleStrokes")
+                updateVisibleStrokes()
+
                 // Redraw the area
                 drawArea(rect)
 
@@ -126,6 +145,8 @@ class PageView(
                 }
             }
         }
+        println("from init viewport call updateVisibleStrokes")
+        updateVisibleStrokes()
     }
 
     private fun indexStrokes() {
@@ -155,12 +176,11 @@ class PageView(
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
         }
+        println("call updateVisibleStrokes from addStrokes")
+        updateVisibleStrokes()
     }
 
     fun removeStrokes(strokeIds: List<String>) {
-        // Capture the strokes before removing them (for debugging if needed)
-        val removedStrokes = strokes.filter { s -> strokeIds.contains(s.id) }
-
         // Remove the strokes
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
 
@@ -179,7 +199,8 @@ class PageView(
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
         }
-
+        println("call updateVisibleStrokes from addStrokes")
+        updateVisibleStrokes()
         println("DEBUG: Removed ${strokeIds.size} strokes, remaining: ${strokes.size}")
     }
 
@@ -228,7 +249,7 @@ class PageView(
         activeCanvas.clipRect(area)
         activeCanvas.drawColor(Color.WHITE)
 
-        strokes.forEach { stroke ->
+        visibleStrokes.forEach { stroke ->
             if (ignoredStrokeIds.contains(stroke.id)) {
                 return@forEach
             }

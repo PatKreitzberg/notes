@@ -146,7 +146,8 @@ class SelectionHandler(
         )
 
         // Filter strokes that are completely inside the region
-        val selectedStrokes = page.strokes.filter { stroke ->
+        // only need pages visibleStrokes
+        val selectedStrokes = page.visibleStrokes.filter { stroke ->
             // Check if stroke bounds intersect with selection bounds
             val strokeBounds = RectF(stroke.left, stroke.top, stroke.right, stroke.bottom)
 

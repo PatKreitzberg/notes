@@ -179,10 +179,9 @@ class DrawingManager(
             paint.getFillPath(path, outPath)
         }
 
-        val deletedStrokes = selectStrokesFromPath(page.strokes, outPath)
-        println("$tag deletedStrokes $deletedStrokes")
+        // only need to check visibleStrokes since user cant erase stroke that is not visible
+        val deletedStrokes = selectStrokesFromPath(page.visibleStrokes, outPath)
         val deletedStrokeIds = deletedStrokes.map { it.id }
-        println("$tag deletedStrokeIds $deletedStrokeIds")
 
         // Skip if no strokes to delete
         if (deletedStrokes.isEmpty()) return
@@ -222,7 +221,7 @@ class DrawingManager(
         // Instead of using Region.setPath, we'll check points against the path directly
         return strokes.filter {
             val strokeBounds = RectF(it.left, it.top, it.right, it.bottom)
-
+            println("stroke bounds $strokeBounds")
             // First check: bounding box intersection
             val intersects = RectF.intersects(strokeBounds, bounds)
 
