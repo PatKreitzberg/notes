@@ -58,7 +58,6 @@ import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.settings.PaperSize
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.settings.TemplateType
-import com.wyldsoft.notes.utils.HistoryAction
 import com.wyldsoft.notes.utils.exportPageToJpeg
 import com.wyldsoft.notes.utils.exportPageToPdf
 import com.wyldsoft.notes.utils.exportPageToPng

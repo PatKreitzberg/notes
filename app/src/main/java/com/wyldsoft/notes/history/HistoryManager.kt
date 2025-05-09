@@ -1,15 +1,17 @@
-package com.wyldsoft.notes.utils
+package com.wyldsoft.notes.history
 
 import android.content.Context
 import android.util.Log
 import com.wyldsoft.notes.database.dao.HistoryActionDao
 import com.wyldsoft.notes.database.entity.HistoryActionEntity
+import com.wyldsoft.notes.utils.Pen
+import com.wyldsoft.notes.utils.Stroke
+import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.Date

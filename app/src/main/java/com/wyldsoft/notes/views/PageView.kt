@@ -19,9 +19,11 @@ import java.io.File
 import java.io.FileOutputStream
 import com.wyldsoft.notes.transform.ViewportTransformer
 import androidx.core.graphics.createBitmap
+import com.wyldsoft.notes.history.HistoryManager
 import com.wyldsoft.notes.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.util.Log
 
 /**
  * Responsible for managing the page content and rendering.
@@ -35,6 +37,7 @@ class PageView(
     var viewWidth: Int,
     var viewHeight: Int
 ) {
+    val tag="PageView:"
     var windowedBitmap = createBitmap(viewWidth, viewHeight)
     var windowedCanvas = Canvas(windowedBitmap)
     var strokes = listOf<Stroke>()
@@ -216,6 +219,10 @@ class PageView(
     ) {
         val activeCanvas = canvas ?: windowedCanvas
 
+        val height = area.bottom-area.top
+        val width = area.right - area.left
+        Log.w(tag, "drawArea rect (left, top) (right, bot): (${area.left}, ${area.top}) to (${area.right}, ${area.bottom})  height: $height width: $width")
+
         // Save canvas state
         activeCanvas.save()
         activeCanvas.clipRect(area)
@@ -228,7 +235,7 @@ class PageView(
 
             if (!isStrokeVisible(stroke)) {
                 // Skip stroke if it's not visible in current viewport
-                println("scroll skip Stroke in drawArea")
+                //println("scroll skip Stroke in drawArea. Area: (${area.left}, ${area.top}) to (${area.right}, ${area.bottom})")
                 return@forEach
             }
 
@@ -265,7 +272,7 @@ class PageView(
     /**
      * Gets the history manager for this page
      */
-    fun getHistoryManager(): com.wyldsoft.notes.utils.HistoryManager? {
+    fun getHistoryManager(): HistoryManager? {
         val app = (context.applicationContext as? com.wyldsoft.notes.NotesApp)
         val manager = app?.historyRepository?.getHistoryManager(id)
         println("undo: Retrieved history manager for page $id: ${manager != null}")
@@ -322,6 +329,7 @@ class PageView(
                     point.x,
                     point.y
                 )
+                Log.w(tag, "stroke transformed (${viewX}, ${viewY})")
                 androidx.compose.ui.geometry.Offset(viewX, viewY)
             }
 

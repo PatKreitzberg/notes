@@ -2,7 +2,7 @@ package com.wyldsoft.notes.database.repository
 
 import android.content.Context
 import com.wyldsoft.notes.database.dao.HistoryActionDao
-import com.wyldsoft.notes.utils.HistoryManager
+import com.wyldsoft.notes.history.HistoryManager
 import kotlinx.coroutines.CoroutineScope
 import java.util.concurrent.ConcurrentHashMap
 

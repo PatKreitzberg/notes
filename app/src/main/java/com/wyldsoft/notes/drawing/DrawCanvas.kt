@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
+import android.util.Log
 import com.wyldsoft.notes.classes.drawing.CanvasRenderer
 import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.classes.drawing.TouchEventHandler
@@ -19,10 +20,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.wyldsoft.notes.selection.SelectionHandler
-import com.wyldsoft.notes.utils.HistoryManager
+import com.wyldsoft.notes.history.HistoryManager
 
 /*
  * The main canvas component that coordinates all drawing operations.
@@ -36,6 +35,7 @@ class DrawCanvas(
     val settingsRepository: SettingsRepository,
     val templateRenderer: TemplateRenderer
 ) : SurfaceView(context) {
+    private val TAG="DrawCanvas:"
     private lateinit var selectionHandler: SelectionHandler
     private lateinit var canvasRenderer: CanvasRenderer
     private lateinit var touchEventHandler: TouchEventHandler
@@ -280,6 +280,7 @@ class DrawCanvas(
 
         // Check if we're actively drawing before refreshing UI
         if (DrawingManager.drawingInProgress.isLocked) {
+            Log.w(TAG, "drawing is in progress, isLocked true")
             println("Drawing is in progress, deferring UI refresh")
             return
         }

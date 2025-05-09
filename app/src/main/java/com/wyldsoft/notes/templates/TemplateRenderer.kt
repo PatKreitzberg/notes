@@ -255,6 +255,7 @@ class TemplateRenderer(private val context: Context) {
         viewportWidth: Float
     ) {
         val lineSpacing = convertDpToPixel(ruledLineSpacingDp, context)
+        println("template: lineSpacing $lineSpacing")
         val leftMargin = convertDpToPixel(leftMarginDp, context)
         val headerHeight = convertDpToPixel(headerHeightDp, context)
 

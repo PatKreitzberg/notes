@@ -2,17 +2,17 @@ package com.wyldsoft.notes.classes.drawing
 
 import android.graphics.Rect
 import android.graphics.RectF
-import com.wyldsoft.notes.utils.ActionType
-import com.wyldsoft.notes.utils.HistoryAction
-import com.wyldsoft.notes.utils.HistoryManager
-import com.wyldsoft.notes.utils.InsertPageActionData
-import com.wyldsoft.notes.utils.MoveActionData
+import com.wyldsoft.notes.history.ActionType
+import com.wyldsoft.notes.history.HistoryAction
+import com.wyldsoft.notes.history.HistoryManager
+import com.wyldsoft.notes.history.InsertPageActionData
+import com.wyldsoft.notes.history.MoveActionData
 import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.utils.Pen
-import com.wyldsoft.notes.utils.SerializableStroke
+import com.wyldsoft.notes.history.SerializableStroke
 import com.wyldsoft.notes.utils.SimplePointF
 import com.wyldsoft.notes.utils.Stroke
-import com.wyldsoft.notes.utils.StrokeActionData
+import com.wyldsoft.notes.history.StrokeActionData
 import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
