@@ -329,7 +329,7 @@ class PageView(
                     point.x,
                     point.y
                 )
-                Log.w(tag, "stroke transformed (${viewX}, ${viewY})")
+                //Log.w(tag, "stroke transformed (${viewX}, ${viewY})")
                 androidx.compose.ui.geometry.Offset(viewX, viewY)
             }
 

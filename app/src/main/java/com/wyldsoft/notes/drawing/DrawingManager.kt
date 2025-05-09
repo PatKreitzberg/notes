@@ -214,7 +214,7 @@ class DrawingManager(
             )
         )
     }
-    
+
     private fun selectStrokesFromPath(strokes: List<Stroke>, path: android.graphics.Path): List<Stroke> {
         val bounds = RectF()
         path.computeBounds(bounds, true)

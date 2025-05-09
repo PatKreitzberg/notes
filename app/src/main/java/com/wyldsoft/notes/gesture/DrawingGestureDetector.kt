@@ -28,7 +28,7 @@ class DrawingGestureDetector(
 
     // Time window for double tap detection (in ms)
     // Note: using a slightly longer time for e-ink displays since they refresh slower
-    private val TAP_TIMEOUT = 300L
+    private val TAP_TIMEOUT = 200L
 
     // Convert dp to pixels for the current context
     private val swipeThreshold = convertDpToPixel(SWIPE_THRESHOLD_DP, context)

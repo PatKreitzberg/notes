@@ -3,12 +3,10 @@ package com.wyldsoft.notes.gesture
 import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.toMutableStateMap
 import com.wyldsoft.notes.transform.ViewportTransformer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
