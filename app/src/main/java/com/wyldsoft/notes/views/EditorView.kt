@@ -24,6 +24,7 @@ import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -177,6 +178,13 @@ fun EditorView(noteId: String? = null) {
                     pageNotebookRepository.addPageToNotebook(pageId, notebookId)
                     println("DEBUG: Associated new note $pageId with notebook $notebookId")
                 }
+            }
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                // Deactivate the page when leaving
+                page.deactivate()
             }
         }
 

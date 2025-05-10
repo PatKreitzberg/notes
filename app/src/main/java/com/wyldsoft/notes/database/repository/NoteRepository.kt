@@ -11,6 +11,7 @@ import com.wyldsoft.notes.utils.StrokePoint
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 import android.content.Context
+import com.wyldsoft.notes.NotesApp
 
 
 /**
@@ -22,6 +23,7 @@ class NoteRepository(
     private val strokeDao: StrokeDao,
     private val strokePointDao: StrokePointDao
 ) {
+    private val noteCache = (context.applicationContext as NotesApp).noteCache
 
     suspend fun getNotesCount(): Int {
         return noteDao.getNotesCount()
@@ -108,12 +110,25 @@ class NoteRepository(
     /**
      * Gets all strokes for a note
      */
-    suspend fun getStrokesForNote(noteId: String): List<Stroke> {
+     suspend fun getStrokesForNote(noteId: String): List<Stroke> {
+        // Check cache first
+        noteCache.getStrokes(noteId)?.let { cachedStrokes ->
+            // Return cached strokes if available
+            println("Loaded strokes from cache ")
+            return cachedStrokes
+        }
+
+        // If not in cache, load from database and cache it
         val strokeEntities = strokeDao.getStrokesForNote(noteId)
-        return strokeEntities.map { strokeEntity ->
+        val strokes = strokeEntities.map { strokeEntity ->
             val points = strokePointDao.getPointsForStroke(strokeEntity.id)
             convertToStroke(strokeEntity, points)
         }
+
+        // Store in cache
+        noteCache.putStrokes(noteId, strokes)
+
+        return strokes
     }
 
     /**
@@ -167,6 +182,9 @@ class NoteRepository(
                 updateNote(note)
             }
         }
+
+        // Update cache
+        noteCache.updateStrokes(noteId, strokes)
     }
 
     /**
@@ -174,17 +192,19 @@ class NoteRepository(
      */
     suspend fun deleteStrokes(noteId: String, strokeIds: List<String>) {
         strokeDao.deleteStrokesByIds(strokeIds)
-        // The foreign key constraint will automatically delete related points
 
         // Update the note's updatedAt timestamp
         noteDao.getNoteById(noteId)?.let { note ->
             updateNote(note)
         }
 
-        println("registerNoteChanged deleteStrokes")
-        (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
-            app.syncManager.changeTracker.registerNoteChanged(noteId)
-        }
+        // Update cache
+        noteCache.removeStrokes(noteId, strokeIds)
+    }
+
+    // Add method to explicitly clear a note from cache
+    fun clearNoteCache(noteId: String) {
+        noteCache.clearNote(noteId)
     }
 
     /**
