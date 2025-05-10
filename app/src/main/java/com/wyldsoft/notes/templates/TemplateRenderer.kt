@@ -15,12 +15,12 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 
 /**
  * Renders background templates like grid and ruled lines
- * Handles proper scaling with zoom
+ * Uses ViewportTransformer for consistent coordinate transforms
  */
 class TemplateRenderer(private val context: Context) {
     // Paint for grid lines
     private val gridPaint = Paint().apply {
-        color = Color.argb(40, 0, 0, 0) // Light gray with 40% opacity
+        color = Color.argb(100, 0, 0, 200) // Light gray with 40% opacity
         strokeWidth = 1f
         style = Paint.Style.STROKE
         isAntiAlias = true
@@ -64,7 +64,7 @@ class TemplateRenderer(private val context: Context) {
 
     /**
      * Renders the selected template on the canvas
-     * Now handles zoom properly through viewportTransformer
+     * Using ViewportTransformer for consistent coordinate transformations
      */
     fun renderTemplate(
         canvas: Canvas,
@@ -79,9 +79,6 @@ class TemplateRenderer(private val context: Context) {
         // Save the canvas state to restore after drawing
         canvas.save()
 
-        // Apply zoom transformation if provided
-        val zoomScale = viewportTransformer?.zoomScale ?: 1.0f
-
         when (templateType) {
             TemplateType.BLANK -> {
                 // Do nothing for blank template
@@ -90,16 +87,16 @@ class TemplateRenderer(private val context: Context) {
             }
             TemplateType.GRID -> {
                 if (paginationManager != null && paginationManager.isPaginationEnabled) {
-                    renderGridTemplateWithPagination(canvas, paginationManager, viewportTop, viewportHeight, viewportWidth, zoomScale, viewportTransformer)
+                    renderGridTemplateWithPagination(canvas, paginationManager, viewportTop, viewportHeight, viewportWidth, viewportTransformer)
                 } else {
-                    renderGridTemplate(canvas, paperSize, viewportTop, viewportHeight, viewportWidth, zoomScale, viewportTransformer)
+                    renderGridTemplate(canvas, paperSize, viewportTop, viewportHeight, viewportWidth, viewportTransformer)
                 }
             }
             TemplateType.RULED -> {
                 if (paginationManager != null && paginationManager.isPaginationEnabled) {
-                    renderRuledTemplateWithPagination(canvas, paginationManager, viewportTop, viewportHeight, viewportWidth, zoomScale, viewportTransformer)
+                    renderRuledTemplateWithPagination(canvas, paginationManager, viewportTop, viewportHeight, viewportWidth, viewportTransformer)
                 } else {
-                    renderRuledTemplate(canvas, paperSize, viewportTop, viewportHeight, viewportWidth, zoomScale, viewportTransformer)
+                    renderRuledTemplate(canvas, paperSize, viewportTop, viewportHeight, viewportWidth, viewportTransformer)
                 }
             }
         }
@@ -109,7 +106,7 @@ class TemplateRenderer(private val context: Context) {
     }
 
     /**
-     * Renders a grid template with proper zoom handling
+     * Renders a grid template using ViewportTransformer for coordinate transformations
      */
     private fun renderGridTemplate(
         canvas: Canvas,
@@ -117,45 +114,50 @@ class TemplateRenderer(private val context: Context) {
         viewportTop: Float,
         viewportHeight: Float,
         viewportWidth: Float,
-        zoomScale: Float,
         viewportTransformer: ViewportTransformer?
     ) {
-        // Adjust grid spacing based on zoom scale
-        val gridSpacing = convertDpToPixel(gridSpacingDp, context) * zoomScale
+        if (viewportTransformer == null) return
+
+        // Grid spacing in page coordinates
+        val gridSpacing = convertDpToPixel(gridSpacingDp, context)
+
+        // Adjust stroke width based on zoom
+        val zoomScale = viewportTransformer.zoomScale
+        gridPaint.strokeWidth = 1f * zoomScale
 
         // Calculate the grid boundaries in page coordinates
-        val startY = Math.floor((viewportTop / (gridSpacing / zoomScale)).toDouble()) * (gridSpacing / zoomScale)
-        val endY = viewportTop + viewportHeight / zoomScale + gridSpacing / zoomScale
+        val viewport = viewportTransformer.getCurrentViewportInPageCoordinates()
+        val startY = Math.floor((viewport.top).toDouble() / gridSpacing) * gridSpacing
+        val endY = viewport.bottom + gridSpacing
 
         // Draw horizontal lines
         var y = startY.toFloat()
         while (y < endY) {
-            // Transform y from page to view coordinates
-            val screenY = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, y)
-                viewY
-            } else {
-                y - viewportTop
-            }
+            // Transform to view coordinates
+            val (_, screenY) = viewportTransformer.pageToViewCoordinates(0f, y)
 
-            // Adjust stroke width for zoom
-            gridPaint.strokeWidth = 1f * zoomScale
-
+            // Draw the line in view coordinates
             canvas.drawLine(0f, screenY, viewportWidth, screenY, gridPaint)
-            y += gridSpacing / zoomScale
+            y += gridSpacing
         }
 
         // Draw vertical lines
-        val gridSpacingX = gridSpacing
-        var x = 0f
-        while (x < viewportWidth) {
-            canvas.drawLine(x, 0f, x, viewportHeight, gridPaint)
-            x += gridSpacingX
+        val startX = Math.floor(viewport.left.toDouble() / gridSpacing) * gridSpacing
+        val endX = viewport.right + gridSpacing
+
+        var x = startX.toFloat()
+        while (x < endX) {
+            // Transform to view coordinates
+            val (screenX, _) = viewportTransformer.pageToViewCoordinates(x, 0f)
+
+            // Draw the line in view coordinates
+            canvas.drawLine(screenX, 0f, screenX, viewportHeight, gridPaint)
+            x += gridSpacing
         }
     }
 
     /**
-     * Renders grid template with pagination support and proper zoom handling
+     * Renders grid template with pagination support using ViewportTransformer
      */
     private fun renderGridTemplateWithPagination(
         canvas: Canvas,
@@ -163,35 +165,30 @@ class TemplateRenderer(private val context: Context) {
         viewportTop: Float,
         viewportHeight: Float,
         viewportWidth: Float,
-        zoomScale: Float,
         viewportTransformer: ViewportTransformer?
     ) {
-        val gridSpacing = convertDpToPixel(gridSpacingDp, context) * zoomScale
+        if (viewportTransformer == null) return
+
+        // Grid spacing in page coordinates
+        val gridSpacing = convertDpToPixel(gridSpacingDp, context)
+
+        // Adjust stroke width based on zoom
+        val zoomScale = viewportTransformer.zoomScale
         gridPaint.strokeWidth = 1f * zoomScale
 
         // Calculate visible page range (in page coordinates)
-        val firstVisiblePageIndex = paginationManager.getPageIndexForY(viewportTop)
-        val lastVisiblePageIndex = paginationManager.getPageIndexForY(viewportTop + viewportHeight / zoomScale)
+        val viewport = viewportTransformer.getCurrentViewportInPageCoordinates()
+        val firstVisiblePageIndex = paginationManager.getPageIndexForY(viewport.top)
+        val lastVisiblePageIndex = paginationManager.getPageIndexForY(viewport.bottom)
 
         // For each visible page, render the grid
         for (pageIndex in firstVisiblePageIndex..lastVisiblePageIndex) {
             val pageTop = paginationManager.getPageTopY(pageIndex)
             val pageBottom = paginationManager.getPageBottomY(pageIndex)
 
-            // Transform to view coordinates with zoom support
-            val viewPageTop = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, pageTop)
-                viewY
-            } else {
-                pageTop - viewportTop
-            }
-
-            val viewPageBottom = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, pageBottom)
-                viewY
-            } else {
-                pageBottom - viewportTop
-            }
+            // Transform page boundaries to view coordinates
+            val (_, viewPageTop) = viewportTransformer.pageToViewCoordinates(0f, pageTop)
+            val (_, viewPageBottom) = viewportTransformer.pageToViewCoordinates(0f, pageBottom)
 
             // Only proceed if the page is visible
             if (viewPageBottom < 0 || viewPageTop > viewportHeight) continue
@@ -206,29 +203,32 @@ class TemplateRenderer(private val context: Context) {
             canvas.clipRect(pageRect)
 
             // Calculate grid start position relative to page top (in page coordinates)
-            val pageGridStart = Math.ceil((pageTop / (gridSpacing / zoomScale)).toDouble()) * (gridSpacing / zoomScale)
-            var y = pageGridStart
+            val gridStart = Math.ceil(pageTop.toDouble() / gridSpacing) * gridSpacing
+            var y = gridStart.toFloat()
 
             // Draw horizontal grid lines for this page
             while (y <= pageBottom) {
-                // Transform to view coordinates with zoom support
-                val screenY = if (viewportTransformer != null) {
-                    val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, y.toFloat())
-                    viewY
-                } else {
-                    y - viewportTop
-                }
+                // Transform to view coordinates
+                val (_, screenY) = viewportTransformer.pageToViewCoordinates(0f, y)
 
                 if (screenY >= visibleTop && screenY <= visibleBottom) {
                     canvas.drawLine(0f, screenY, viewportWidth, screenY, gridPaint)
                 }
-                y += gridSpacing / zoomScale
+                y += gridSpacing
             }
 
-            // Draw vertical grid lines 
-            var x = 0f
-            while (x < viewportWidth) {
-                canvas.drawLine(x, visibleTop, x, visibleBottom, gridPaint)
+            // Draw vertical grid lines
+            val startX = 0f
+            val endX = viewportTransformer.getCurrentViewportInPageCoordinates().width()
+            var x = startX
+
+            while (x < endX) {
+                // Transform to view coordinates
+                val (screenX, _) = viewportTransformer.pageToViewCoordinates(x, 0f)
+
+                if (screenX >= 0 && screenX <= viewportWidth) {
+                    canvas.drawLine(screenX, visibleTop, screenX, visibleBottom, gridPaint)
+                }
                 x += gridSpacing
             }
 
@@ -238,7 +238,7 @@ class TemplateRenderer(private val context: Context) {
     }
 
     /**
-     * Renders ruled lines template with proper zoom handling
+     * Renders ruled lines template using ViewportTransformer
      */
     private fun renderRuledTemplate(
         canvas: Canvas,
@@ -246,76 +246,75 @@ class TemplateRenderer(private val context: Context) {
         viewportTop: Float,
         viewportHeight: Float,
         viewportWidth: Float,
-        zoomScale: Float,
         viewportTransformer: ViewportTransformer?
     ) {
-        val lineSpacing = convertDpToPixel(ruledLineSpacingDp, context) * zoomScale
-        val leftMargin = convertDpToPixel(leftMarginDp, context) * zoomScale
-        val headerHeight = convertDpToPixel(headerHeightDp, context) * zoomScale
+        if (viewportTransformer == null) return
 
-        // Adjust paint stroke widths for zoom
+        // Get dimensions in page coordinates
+        val lineSpacing = convertDpToPixel(ruledLineSpacingDp, context)
+        val leftMarginInPage = convertDpToPixel(leftMarginDp, context)
+        val headerHeightInPage = convertDpToPixel(headerHeightDp, context)
+
+        // Adjust stroke width based on zoom
+        val zoomScale = viewportTransformer.zoomScale
         ruledPaint.strokeWidth = 2f * zoomScale
         marginPaint.strokeWidth = 2f * zoomScale
         headerPaint.strokeWidth = 2f * zoomScale
 
-        // Calculate the line boundaries in page coordinates
-        val startY = Math.floor((viewportTop / (lineSpacing / zoomScale)).toDouble()) * (lineSpacing / zoomScale)
-        val endY = viewportTop + viewportHeight / zoomScale + lineSpacing / zoomScale
+        // Get the current viewport in page coordinates
+        val viewport = viewportTransformer.getCurrentViewportInPageCoordinates()
+
+        // Transform the left margin line to view coordinates
+        val (leftMarginView, _) = viewportTransformer.pageToViewCoordinates(leftMarginInPage, 0f)
 
         // Draw the vertical margin line
         canvas.drawLine(
-            leftMargin,
+            leftMarginView,
             0f,
-            leftMargin,
+            leftMarginView,
             viewportHeight,
             marginPaint
         )
 
+        // Transform the header line to view coordinates
+        val (_, headerLineView) = viewportTransformer.pageToViewCoordinates(0f, headerHeightInPage)
+
         // Draw horizontal header line if it's in view
-        val headerLine = headerHeight / zoomScale
-
-        // Transform to view coordinates with zoom
-        val screenHeaderY = if (viewportTransformer != null) {
-            val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, headerLine)
-            viewY
-        } else {
-            headerLine - viewportTop
-        }
-
-        if (screenHeaderY >= 0 && screenHeaderY <= viewportHeight) {
+        if (headerLineView >= 0 && headerLineView <= viewportHeight) {
             canvas.drawLine(
                 0f,
-                screenHeaderY,
+                headerLineView,
                 viewportWidth,
-                screenHeaderY,
+                headerLineView,
                 headerPaint
             )
         }
+
+        // Calculate line boundaries for ruled lines
+        val startY = Math.ceil((viewport.top.toDouble() + headerHeightInPage) / lineSpacing) * lineSpacing
+        val endY = viewport.bottom + lineSpacing
 
         // Draw horizontal ruled lines
         var y = startY.toFloat()
         while (y < endY) {
             // Skip lines that would be in the header area
-            if (y < headerLine) {
-                y += lineSpacing / zoomScale
+            if (y < headerHeightInPage) {
+                y += lineSpacing
                 continue
             }
 
-            // Transform to view coordinates with zoom
-            val screenY = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, y)
-                viewY
-            } else {
-                y - viewportTop
-            }
+            // Transform to view coordinates
+            val (_, screenY) = viewportTransformer.pageToViewCoordinates(0f, y)
 
-            canvas.drawLine(0f, screenY, viewportWidth, screenY, ruledPaint)
-            y += lineSpacing / zoomScale
+            if (screenY >= 0 && screenY <= viewportHeight) {
+                canvas.drawLine(0f, screenY, viewportWidth, screenY, ruledPaint)
+            }
+            y += lineSpacing
         }
     }
 
     /**
-     * Renders ruled lines template with pagination support and proper zoom handling
+     * Renders ruled lines template with pagination support using ViewportTransformer
      */
     private fun renderRuledTemplateWithPagination(
         canvas: Canvas,
@@ -323,41 +322,34 @@ class TemplateRenderer(private val context: Context) {
         viewportTop: Float,
         viewportHeight: Float,
         viewportWidth: Float,
-        zoomScale: Float,
         viewportTransformer: ViewportTransformer?
     ) {
-        val lineSpacing = convertDpToPixel(ruledLineSpacingDp, context) * zoomScale
-        val leftMargin = convertDpToPixel(leftMarginDp, context) * zoomScale
-        val headerHeight = convertDpToPixel(headerHeightDp, context) * zoomScale
+        if (viewportTransformer == null) return
+
+        // Get dimensions in page coordinates
+        val lineSpacing = convertDpToPixel(ruledLineSpacingDp, context)
+        val leftMarginInPage = convertDpToPixel(leftMarginDp, context)
+        val headerHeightInPage = convertDpToPixel(headerHeightDp, context)
 
         // Adjust paint stroke widths for zoom
+        val zoomScale = viewportTransformer.zoomScale
         ruledPaint.strokeWidth = 2f * zoomScale
         marginPaint.strokeWidth = 2f * zoomScale
         headerPaint.strokeWidth = 2f * zoomScale
 
         // Calculate visible page range (in page coordinates)
-        val firstVisiblePageIndex = paginationManager.getPageIndexForY(viewportTop)
-        val lastVisiblePageIndex = paginationManager.getPageIndexForY(viewportTop + viewportHeight / zoomScale)
+        val viewport = viewportTransformer.getCurrentViewportInPageCoordinates()
+        val firstVisiblePageIndex = paginationManager.getPageIndexForY(viewport.top)
+        val lastVisiblePageIndex = paginationManager.getPageIndexForY(viewport.bottom)
 
         // For each visible page, render the ruled lines
         for (pageIndex in firstVisiblePageIndex..lastVisiblePageIndex) {
             val pageTop = paginationManager.getPageTopY(pageIndex)
             val pageBottom = paginationManager.getPageBottomY(pageIndex)
 
-            // Transform to view coordinates with zoom support
-            val viewPageTop = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, pageTop)
-                viewY
-            } else {
-                pageTop - viewportTop
-            }
-
-            val viewPageBottom = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, pageBottom)
-                viewY
-            } else {
-                pageBottom - viewportTop
-            }
+            // Transform to view coordinates
+            val (_, viewPageTop) = viewportTransformer.pageToViewCoordinates(0f, pageTop)
+            val (_, viewPageBottom) = viewportTransformer.pageToViewCoordinates(0f, pageBottom)
 
             // Only proceed if the page is visible
             if (viewPageBottom < 0 || viewPageTop > viewportHeight) continue
@@ -372,54 +364,46 @@ class TemplateRenderer(private val context: Context) {
             canvas.clipRect(pageRect)
 
             // Draw the vertical margin line for this page
+            val (leftMarginView, _) = viewportTransformer.pageToViewCoordinates(leftMarginInPage, 0f)
+
             canvas.drawLine(
-                leftMargin,
+                leftMarginView,
                 visibleTop,
-                leftMargin,
+                leftMarginView,
                 visibleBottom,
                 marginPaint
             )
 
             // Calculate header position within this page
-            val pageHeaderY = pageTop + headerHeight / zoomScale
+            val pageHeaderY = pageTop + headerHeightInPage
 
-            // Transform to view coordinates with zoom support
-            val screenHeaderY = if (viewportTransformer != null) {
-                val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, pageHeaderY)
-                viewY
-            } else {
-                pageHeaderY - viewportTop
-            }
+            // Transform to view coordinates
+            val (_, headerLineView) = viewportTransformer.pageToViewCoordinates(0f, pageHeaderY)
 
             // Draw horizontal header line if it's in view
-            if (screenHeaderY >= visibleTop && screenHeaderY <= visibleBottom) {
+            if (headerLineView >= visibleTop && headerLineView <= visibleBottom) {
                 canvas.drawLine(
                     0f,
-                    screenHeaderY,
+                    headerLineView,
                     viewportWidth,
-                    screenHeaderY,
+                    headerLineView,
                     headerPaint
                 )
             }
 
             // Calculate ruled lines start position for this page
-            val pageLineStart = pageTop + headerHeight / zoomScale + lineSpacing / zoomScale
-            var y = pageLineStart
+            val lineStart = Math.ceil((pageTop.toDouble() + headerHeightInPage) / lineSpacing) * lineSpacing
+            var y = lineStart.toFloat()
 
             // Draw horizontal ruled lines for this page
             while (y <= pageBottom) {
-                // Transform to view coordinates with zoom support
-                val screenY = if (viewportTransformer != null) {
-                    val (_, viewY) = viewportTransformer.pageToViewCoordinates(0f, y)
-                    viewY
-                } else {
-                    y - viewportTop
-                }
+                // Transform to view coordinates
+                val (_, screenY) = viewportTransformer.pageToViewCoordinates(0f, y)
 
                 if (screenY >= visibleTop && screenY <= visibleBottom) {
                     canvas.drawLine(0f, screenY, viewportWidth, screenY, ruledPaint)
                 }
-                y += lineSpacing / zoomScale
+                y += lineSpacing
             }
 
             // Restore canvas state
