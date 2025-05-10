@@ -132,8 +132,6 @@ class PageView(
                     viewport.right.toInt(),
                     viewport.bottom.toInt()
                 )
-
-                println("viewport changed call updateVisibleStrokes")
                 updateVisibleStrokes()
 
                 // Redraw the area
@@ -145,7 +143,6 @@ class PageView(
                 }
             }
         }
-        println("from init viewport call updateVisibleStrokes")
         updateVisibleStrokes()
     }
 
@@ -155,7 +152,7 @@ class PageView(
         }
     }
 
-    fun addStrokes(strokesToAdd: List<Stroke>) {
+    fun addStrokes(strokesToAdd: List<Stroke>, registerChange: Boolean = true) {
         strokes += strokesToAdd
         strokesToAdd.forEach {
             val bottomPlusPadding = it.bottom + 50
@@ -173,10 +170,12 @@ class PageView(
 
             // Register note change for syncing
             (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
-                app.syncManager.changeTracker.registerNoteChanged(id)
+                if (registerChange) {
+                    println("registerChange $registerChange")
+                    app.syncManager.changeTracker.registerNoteChanged(id)
+                }
             }
         }
-        println("call updateVisibleStrokes from addStrokes")
         updateVisibleStrokes()
     }
 
@@ -199,9 +198,7 @@ class PageView(
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
         }
-        println("call updateVisibleStrokes from addStrokes")
         updateVisibleStrokes()
-        println("DEBUG: Removed ${strokeIds.size} strokes, remaining: ${strokes.size}")
     }
 
     private fun computeHeight() {

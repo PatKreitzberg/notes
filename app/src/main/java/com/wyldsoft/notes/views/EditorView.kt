@@ -128,7 +128,7 @@ fun EditorView(noteId: String? = null) {
                         val strokes = noteRepository.getStrokesForNote(noteId)
                         if (strokes.isNotEmpty()) {
                             println("DEBUG: Loaded ${strokes.size} strokes")
-                            page.addStrokes(strokes)
+                            page.addStrokes(strokes, registerChange = false)
 
                             // Force redraw of the entire viewport
                             val viewport =

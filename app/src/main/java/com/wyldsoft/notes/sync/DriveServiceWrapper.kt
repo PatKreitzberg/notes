@@ -325,13 +325,10 @@ class DriveServiceWrapper(private val context: Context) {
     /**
      * Creates a new note file
      */
-    suspend fun createNoteFile(noteId: String, content: String, title: String): DriveFileInfo {
+    suspend fun createNoteFile(filename: String, content: String): DriveFileInfo {
         return withContext(Dispatchers.IO) {
             val service = driveService ?: throw IllegalStateException("Drive service not initialized")
             val folderId = ensureNotesFolder()
-
-            // Include note ID in filename for easier searching
-            val filename = "${noteId}_${sanitizeFileName(title)}.json"
 
             val fileMetadata = File()
                 .setName(filename)
@@ -366,6 +363,8 @@ class DriveServiceWrapper(private val context: Context) {
             if (title != null) {
                 fileMetadata.name = title
             }
+
+            println("sync: fileId")
 
             val contentStream = ByteArrayInputStream(content.toByteArray())
 
@@ -423,10 +422,5 @@ class DriveServiceWrapper(private val context: Context) {
         return format.format(date)
     }
 
-    /**
-     * Sanitizes filename for storage
-     */
-    private fun sanitizeFileName(name: String): String {
-        return name.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-    }
+
 }

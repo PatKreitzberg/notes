@@ -198,7 +198,6 @@ class SyncManager(
             }
             return@withContext emptyList()
         }
-
         return@withContext downloadFilesFromDrive(changedFiles, lastSync)
     }
 
@@ -502,8 +501,6 @@ class SyncManager(
         return notebook.id
     }
 
-
-
     /**
      * Uploads local changes to Google Drive
      */
@@ -569,16 +566,33 @@ class SyncManager(
         // Check if note already exists on Drive
         val existingFile = driveServiceWrapper.findNoteFile(note.id)
 
+
+        val filenameForDrive = getNoteNameForDrive(note)
         if (existingFile != null) {
+            println("existinfFile id ${existingFile.id} name ${existingFile.name}")
             // Update existing file
-            driveServiceWrapper.updateFile(existingFile.id, noteData, note.title)
+            android.util.Log.d("SyncManager", "updateFile ${note.title}")
+            driveServiceWrapper.updateFile(existingFile.id, noteData, filenameForDrive)
         } else {
             // Create new file
-            driveServiceWrapper.createNoteFile(note.id, noteData, note.title)
+            android.util.Log.d("SyncManager", "createNoteFile ${note.title}")
+            driveServiceWrapper.createNoteFile(filenameForDrive, noteData)
         }
 
         // Update metadata
         updateSyncMetadata(note)
+    }
+
+    /**
+     * Sanitizes filename for storage
+     */
+    private fun sanitizeFileName(name: String): String {
+        return name.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+    }
+
+    private fun getNoteNameForDrive(note: NoteEntity): String {
+        val filename = "ID:${note.id}_NoteTitle:${sanitizeFileName(note.title)}.json"
+        return filename
     }
 
     /**
@@ -791,7 +805,7 @@ class SyncManager(
         val prefs = context.getSharedPreferences("sync_settings", Context.MODE_PRIVATE)
 
         syncOnlyOnWifi = prefs.getBoolean("sync_only_wifi", true)
-        autoSyncEnabled = prefs.getBoolean("auto_sync_enabled", true)
+        autoSyncEnabled = prefs.getBoolean("auto_sync_enabled", false)
         syncFrequency = SyncFrequency.values()[
             prefs.getInt("sync_frequency", SyncFrequency.REALTIME.ordinal)
         ]
