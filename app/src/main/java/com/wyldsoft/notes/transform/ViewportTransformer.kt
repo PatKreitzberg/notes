@@ -164,69 +164,18 @@ class ViewportTransformer(
      * Determines if a rect in page coordinates is visible in the current viewport
      */
     fun isRectVisible(rect: RectF): Boolean {
-        // Transform the rectangle from page coordinates to view coordinates
-        val zoomOffsetX = (viewWidth / 2f) - (zoomCenterX * zoomScale)
-        val zoomOffsetY = (viewHeight / 2f) - (zoomCenterY * zoomScale)
+        // Get the current viewport in page coordinates
+        val viewport = getCurrentViewportInPageCoordinates()
 
-        val transformedLeft = rect.left * zoomScale + zoomOffsetX
-        val transformedTop = (rect.top - scrollY) * zoomScale + zoomOffsetY
-        val transformedRight = rect.right * zoomScale + zoomOffsetX
-        val transformedBottom = (rect.bottom - scrollY) * zoomScale + zoomOffsetY
-
-        // A rectangle is visible if ANY part of it is in the viewport
-        return !(transformedRight < 0 || transformedLeft > viewWidth ||
-                transformedBottom < 0 || transformedTop > viewHeight)
-    }
-
-    /**
-     * Calculates the scroll amount based on gesture
-     * @param startY start Y position of the gesture
-     * @param endY end Y position of the gesture
-     * @param duration duration of the gesture in milliseconds
-     * @return recommended scroll amount
-     */
-    fun calculateScrollAmount(startY: Float, endY: Float, duration: Long): Float {
-        val delta = startY - endY // Reverse direction: up swipe = scroll down
-        println("scroll calculateScrollAmount delta $delta")
-        // Base scroll amount is proportional to gesture distance
-        val baseScrollAmount = delta * (viewHeight / 3f) / viewHeight
-
-        // Adjust for speed - faster swipes get more scroll distance
-        val speedFactor = if (duration > 0) {
-            val speed = Math.abs(delta) / duration
-            val normalizedSpeed = (speed * 5).coerceIn(0.8f, 4.0f)
-            normalizedSpeed
-        } else {
-            1.0f
-        }
-
-        // Divide by zoom scale to adjust for zoomed view
-        return (baseScrollAmount * speedFactor) / zoomScale
-    }
-
-    /**
-     * Returns the visible portion of a rect in view coordinates
-     */
-    fun getVisibleRect(rect: RectF): RectF? {
-        if (!isRectVisible(rect)) return null
-
-        // Transform to view coordinates with zoom
-        val zoomOffsetX = (viewWidth / 2f) - (zoomCenterX * zoomScale)
-        val zoomOffsetY = (viewHeight / 2f) - (zoomCenterY * zoomScale)
-
-        val viewLeft = rect.left * zoomScale + zoomOffsetX
-        val viewTop = (max(rect.top, scrollY) - scrollY) * zoomScale + zoomOffsetY
-        val viewRight = rect.right * zoomScale + zoomOffsetX
-        val viewBottom = (min(rect.bottom, scrollY + viewHeight / zoomScale) - scrollY) * zoomScale + zoomOffsetY
-
-        return RectF(viewLeft, viewTop, viewRight, viewBottom)
+        // Simple bounding box intersection check
+        return RectF.intersects(viewport, rect)
     }
 
     /**
      * Returns the current viewport rect in page coordinates
      */
     fun getCurrentViewportInPageCoordinates(): RectF {
-        // Calculate the actual viewport in page coordinates considering zoom
+        // Transform the view corners to page coordinates
         val (topLeftX, topLeftY) = viewToPageCoordinates(0f, 0f)
         val (bottomRightX, bottomRightY) = viewToPageCoordinates(viewWidth.toFloat(), viewHeight.toFloat())
 

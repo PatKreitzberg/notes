@@ -96,6 +96,9 @@ class PageView(
         strokes.forEach { stroke ->
             if (isStrokeVisible(stroke)) {
                 _visibleStrokes.add(stroke)
+                println("stroke: is  visible")
+            } else{
+                println("stroke: not visible")
             }
         }
     }
