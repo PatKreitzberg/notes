@@ -203,7 +203,8 @@ fun EditorView(noteId: String? = null) {
                     if (strokes.isNotEmpty()) {
                         // Save new strokes to database
                         println("DEBUG: Saving ${strokes.size} strokes to database")
-                        noteRepository.saveStrokes(pageId, strokes)
+                        noteRepository.saveStrokes(pageId, strokes, false)
+                        println("DEBUG: DONE Saving ${strokes.size} strokes to database")
                     }
                 }
             }

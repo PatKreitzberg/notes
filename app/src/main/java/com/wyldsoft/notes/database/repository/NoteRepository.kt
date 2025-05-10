@@ -91,6 +91,7 @@ class NoteRepository(
         noteDao.updateNote(updatedNote)
 
         // Register note change for syncing
+        println("registerNoteChanged updateNote")
         (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
             app.syncManager.changeTracker.registerNoteChanged(note.id)
         }
@@ -118,7 +119,7 @@ class NoteRepository(
     /**
      * Saves strokes for a note
      */
-    suspend fun saveStrokes(noteId: String, strokes: List<Stroke>) {
+    suspend fun saveStrokes(noteId: String, strokes: List<Stroke>, registerNoteChange: Boolean = true) {
         strokes.forEach { stroke ->
             // Create stroke entity
             val strokeEntity = StrokeEntity(
@@ -152,14 +153,19 @@ class NoteRepository(
                 )
             }
             strokePointDao.insertPoints(pointEntities)
-            (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
-                app.syncManager.changeTracker.registerNoteChanged(noteId)
+            if (registerNoteChange) {
+                println("registerNoteChanged $registerNoteChange saveStrokes")
+                (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
+                    app.syncManager.changeTracker.registerNoteChanged(noteId)
+                }
             }
         }
 
         // Update the note's updatedAt timestamp
-        noteDao.getNoteById(noteId)?.let { note ->
-            updateNote(note)
+        if (registerNoteChange) { // dont update if note is just being loaded, not modified
+            noteDao.getNoteById(noteId)?.let { note ->
+                updateNote(note)
+            }
         }
     }
 
@@ -175,6 +181,7 @@ class NoteRepository(
             updateNote(note)
         }
 
+        println("registerNoteChanged deleteStrokes")
         (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
             app.syncManager.changeTracker.registerNoteChanged(noteId)
         }

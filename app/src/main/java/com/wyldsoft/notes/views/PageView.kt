@@ -171,7 +171,7 @@ class PageView(
             // Register note change for syncing
             (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
                 if (registerChange) {
-                    println("registerChange $registerChange")
+                    println("registerNoteChanged  addStrokes $registerChange")
                     app.syncManager.changeTracker.registerNoteChanged(id)
                 }
             }
@@ -194,6 +194,7 @@ class PageView(
             _strokesChanged.emit(emptyList())
 
             // Register note change for syncing
+            println("registerNoteChanged removeStrokes")
             (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
