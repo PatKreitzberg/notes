@@ -1,3 +1,4 @@
+// app/src/main/java/com/wyldsoft/notes/gesture/DrawingGestureDetector.kt
 package com.wyldsoft.notes.gesture
 
 import android.content.Context
@@ -5,6 +6,7 @@ import android.os.CountDownTimer
 import android.view.MotionEvent
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import kotlin.math.sqrt
 
 import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.transform.ViewportTransformer
@@ -47,6 +49,15 @@ class DrawingGestureDetector(
     private var isScrolling = false
     private var initialY = 0f
 
+    // Custom pinch-to-zoom tracking variables
+    private var isZooming = false
+    private var initialDistance = 0f
+    private var initialScale = 1.0f
+    private var activePointerId1 = -1
+    private var activePointerId2 = -1
+    private var focusX = 0f
+    private var focusY = 0f
+
     /**
      * Check if the event is from a stylus rather than a finger.
      *
@@ -62,6 +73,105 @@ class DrawingGestureDetector(
             }
         }
         return false
+    }
+
+    /**
+     * Calculate the distance between two pointers
+     */
+    private fun getDistance(event: MotionEvent, pointerIndex1: Int, pointerIndex2: Int): Float {
+        val x1 = event.getX(pointerIndex1)
+        val y1 = event.getY(pointerIndex1)
+        val x2 = event.getX(pointerIndex2)
+        val y2 = event.getY(pointerIndex2)
+
+        return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+    }
+
+    /**
+     * Calculate the focus point (midpoint) between two pointers
+     */
+    private fun getFocusPoint(event: MotionEvent, pointerIndex1: Int, pointerIndex2: Int): Pair<Float, Float> {
+        val x1 = event.getX(pointerIndex1)
+        val y1 = event.getY(pointerIndex1)
+        val x2 = event.getX(pointerIndex2)
+        val y2 = event.getY(pointerIndex2)
+
+        return Pair((x1 + x2) / 2f, (y1 + y2) / 2f)
+    }
+
+    /**
+     * Handle the start of a pinch gesture
+     */
+    private fun startPinch(event: MotionEvent) {
+        // We need exactly two pointers to start pinch
+        if (event.pointerCount != 2) return
+
+        isZooming = true
+
+        // Store the pointer IDs
+        activePointerId1 = event.getPointerId(0)
+        activePointerId2 = event.getPointerId(1)
+
+        // Calculate the initial distance between pointers
+        val pointerIndex1 = event.findPointerIndex(activePointerId1)
+        val pointerIndex2 = event.findPointerIndex(activePointerId2)
+
+        initialDistance = getDistance(event, pointerIndex1, pointerIndex2)
+        initialScale = viewportTransformer.zoomScale
+
+        // Store the focus point (center of the pinch)
+        val (x, y) = getFocusPoint(event, pointerIndex1, pointerIndex2)
+        focusX = x
+        focusY = y
+
+        println("Pinch started: distance=$initialDistance, scale=$initialScale, focus=($focusX, $focusY)")
+    }
+
+    /**
+     * Handle pinch movement
+     */
+    private fun handlePinch(event: MotionEvent) {
+        if (!isZooming) return
+
+        // Find pointer indices
+        val pointerIndex1 = event.findPointerIndex(activePointerId1)
+        val pointerIndex2 = event.findPointerIndex(activePointerId2)
+
+        // Make sure we have both pointers
+        if (pointerIndex1 == -1 || pointerIndex2 == -1) {
+            isZooming = false
+            return
+        }
+
+        // Calculate the current distance
+        val currentDistance = getDistance(event, pointerIndex1, pointerIndex2)
+
+        // Calculate new scale factor
+        val scaleFactor = currentDistance / initialDistance
+        val newScale = initialScale * scaleFactor
+
+        // Update focus point
+        val (x, y) = getFocusPoint(event, pointerIndex1, pointerIndex2)
+        focusX = x
+        focusY = y
+
+        // Apply the zoom
+        viewportTransformer.zoom(newScale, focusX, focusY)
+
+        // Notify gesture handler about the zoom
+        onGestureDetected("gesture: Pinch zoom detected")
+    }
+
+    /**
+     * End the pinch gesture
+     */
+    private fun endPinch() {
+        if (isZooming) {
+            isZooming = false
+            activePointerId1 = -1
+            activePointerId2 = -1
+            println("Pinch ended: final scale=${viewportTransformer.zoomScale}")
+        }
     }
 
     /**
@@ -81,22 +191,54 @@ class DrawingGestureDetector(
         val action = event.actionMasked
         val currentTime = System.currentTimeMillis()
 
-        // Handle multi-finger gestures first, before delegating to other detectors
+        // Handle pinch-to-zoom gestures
         when (action) {
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // Start pinch when second pointer is down
+                if (event.pointerCount == 2) {
+                    startPinch(event)
+                    return true
+                }
+            }
+
             MotionEvent.ACTION_MOVE -> {
-                if (!isScrolling) {
-                    var deltaY = initialY - event.y
-                    if (kotlin.math.abs(deltaY) > SCROLL_THRESHOLD) {
-                        isScrolling = true
+                // Handle pinch movement
+                if (isZooming) {
+                    handlePinch(event)
+                    return true
+                }
+
+                // Handle scrolling if not zooming
+                if (!isZooming) {
+                    if (!isScrolling) {
+                        var deltaY = initialY - event.y
+                        if (kotlin.math.abs(deltaY) > SCROLL_THRESHOLD) {
+                            isScrolling = true
+                            viewportTransformer.scroll(deltaY, true)
+                            lastTouchY = event.y
+                        }
+                    } else {
+                        var deltaY = lastTouchY - event.y
                         viewportTransformer.scroll(deltaY, true)
                         lastTouchY = event.y
                     }
-                } else {
-                    var deltaY = lastTouchY - event.y
-                    viewportTransformer.scroll(deltaY, true)
-                    lastTouchY = event.y
                 }
             }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                // Check if one of our active pointers is going up
+                val pointerId = event.getPointerId(event.actionIndex)
+                if (pointerId == activePointerId1 || pointerId == activePointerId2) {
+                    endPinch()
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // End any ongoing pinch
+                endPinch()
+                actionUpOrActionCancel(event, action == MotionEvent.ACTION_UP, currentTime)
+            }
+
             MotionEvent.ACTION_DOWN -> {
                 // First finger down - start tracking a new gesture
                 lastTouchY = event.y
@@ -113,34 +255,9 @@ class DrawingGestureDetector(
                 isInGesture = true
                 maxPointerCount = 1
             }
-
-            MotionEvent.ACTION_POINTER_DOWN -> {
-                // Additional finger down - update max pointer count
-                stopTapTimer() // don't emit gesture from earlier tap
-                val pointerCount = event.pointerCount
-                if (isInGesture) {
-                    // Always update max pointer count for this gesture
-                    maxPointerCount = Math.max(maxPointerCount, pointerCount)
-                }
-            }
-
-            MotionEvent.ACTION_POINTER_UP -> {
-                // One finger up but others remain
-                // Continue tracking the gesture, don't reset anything
-            }
-
-            MotionEvent.ACTION_UP -> {
-                actionUpOrActionCancel(event, true, currentTime)
-            }
-
-            MotionEvent.ACTION_CANCEL -> {
-                // Treat this the same as action up.
-                // It is called when fingers are lifted off the ground so that
-                // something like drawing with your finger is cancelled if you lift your finger
-                actionUpOrActionCancel(event, false, currentTime)
-            }
         }
-        return isInGesture
+
+        return isInGesture || isZooming
     }
 
     private fun stopTapTimer() {
@@ -151,7 +268,7 @@ class DrawingGestureDetector(
         tapTimer?.cancel() // Cancel existing timer before starting a new one
         tapTimer = object : CountDownTimer(TAP_TIMEOUT, 100) {
             override fun onTick(millisUntilFinished: Long) {
-                // Dont need onTick
+                // Don't need onTick
             }
 
             override fun onFinish() {

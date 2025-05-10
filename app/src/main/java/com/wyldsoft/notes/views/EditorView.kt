@@ -1,8 +1,8 @@
 package com.wyldsoft.notes.views
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,16 +13,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
-import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,18 +39,19 @@ import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
 import com.wyldsoft.notes.classes.drawing.DrawingManager
 import com.wyldsoft.notes.components.EditorSurface
+import com.wyldsoft.notes.components.ScrollIndicator
 import com.wyldsoft.notes.components.Toolbar
+import com.wyldsoft.notes.components.TopBoundaryIndicator
+import com.wyldsoft.notes.components.ZoomIndicator
 import com.wyldsoft.notes.database.entity.NotebookEntity
+import com.wyldsoft.notes.selection.SelectionHandler
+import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.ui.theme.NotesTheme
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.convertDpToPixel
-import com.wyldsoft.notes.components.ScrollIndicator
-import com.wyldsoft.notes.components.TopBoundaryIndicator
-import com.wyldsoft.notes.templates.TemplateRenderer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
-import com.wyldsoft.notes.selection.SelectionHandler
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -70,8 +67,6 @@ fun EditorView(noteId: String? = null) {
     val notebookRepository = app.notebookRepository
 
     var noteTitle by remember { mutableStateOf("New Note") }
-
-
 
     // State for notebook management
     var showNotebookDialog by remember { mutableStateOf(false) }
@@ -268,14 +263,20 @@ fun EditorView(noteId: String? = null) {
                     templateRenderer = templateRenderer
                 )
 
-                // Add scroll indicator
+                // Scroll indicator
                 ScrollIndicator(
                     viewportTransformer = page.viewportTransformer,
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Add top boundary indicator
+                // Top boundary indicator
                 TopBoundaryIndicator(
+                    viewportTransformer = page.viewportTransformer,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Zoom Indicator
+                ZoomIndicator(
                     viewportTransformer = page.viewportTransformer,
                     modifier = Modifier.fillMaxSize()
                 )

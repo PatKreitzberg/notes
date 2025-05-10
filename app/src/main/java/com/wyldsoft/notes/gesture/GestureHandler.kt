@@ -1,3 +1,4 @@
+// app/src/main/java/com/wyldsoft/notes/gesture/GestureHandler.kt
 package com.wyldsoft.notes.gesture
 
 import android.content.Context
@@ -23,6 +24,7 @@ enum class GestureAction(val displayName: String) {
     REDO("Redo"),
     ZOOM_IN("Zoom In"),
     ZOOM_OUT("Zoom Out"),
+    RESET_ZOOM("Reset Zoom"),
     SWITCH_MODE_DRAW("Switch to Draw Mode"),
     SWITCH_MODE_ERASE("Switch to Erase Mode"),
     TOGGLE_SELECTION("Toggle Selection Mode"),
@@ -40,7 +42,8 @@ enum class GestureType(val displayName: String) {
     THREE_FINGER_DOUBLE_TAP("Three Finger Double Tap"),
     THREE_FINGER_TRIPLE_TAP("Three Finger Triple Tap"),
     FOUR_FINGER_DOUBLE_TAP("Four Finger Double Tap"),
-    FOUR_FINGER_TRIPLE_TAP("Four Finger Triple Tap")
+    FOUR_FINGER_TRIPLE_TAP("Four Finger Triple Tap"),
+    PINCH_ZOOM("Pinch Zoom")
 }
 
 @Serializable
@@ -84,11 +87,18 @@ class GestureHandler(
             "Three-finger triple tap" -> GestureType.THREE_FINGER_TRIPLE_TAP
             "Four-finger double tap" -> GestureType.FOUR_FINGER_DOUBLE_TAP
             "Four-finger triple tap" -> GestureType.FOUR_FINGER_TRIPLE_TAP
+            "Pinch zoom" -> GestureType.PINCH_ZOOM
             else -> null
         }
 
         if (gestureType == null) {
             Log.d("GestureHandler", "Unknown gesture: $gestureDesc")
+            return
+        }
+
+        // For pinch zoom, we handle it directly
+        if (gestureType == GestureType.PINCH_ZOOM) {
+            // Pinch zoom is handled by the ScaleGestureDetector in DrawingGestureDetector
             return
         }
 
@@ -141,11 +151,23 @@ class GestureHandler(
             }
             GestureAction.ZOOM_IN -> {
                 println("Executing action: Zoom In")
-                // Implement zoom in logic
+                viewportTransformer?.let {
+                    val currentScale = it.zoomScale
+                    val newScale = (currentScale * 1.25f).coerceAtMost(2.0f)
+                    it.zoom(newScale, it.viewWidth / 2f, it.viewHeight / 2f)
+                }
             }
             GestureAction.ZOOM_OUT -> {
                 println("Executing action: Zoom Out")
-                // Implement zoom out logic
+                viewportTransformer?.let {
+                    val currentScale = it.zoomScale
+                    val newScale = (currentScale * 0.8f).coerceAtLeast(1.0f)
+                    it.zoom(newScale, it.viewWidth / 2f, it.viewHeight / 2f)
+                }
+            }
+            GestureAction.RESET_ZOOM -> {
+                println("Executing action: Reset Zoom")
+                viewportTransformer?.resetZoom()
             }
             GestureAction.SWITCH_MODE_DRAW -> {
                 println("Executing action: Switch to Draw Mode")
@@ -235,10 +257,11 @@ class GestureHandler(
         gestureActions[GestureType.SINGLE_FINGER_TRIPLE_TAP] = GestureAction.NONE
         gestureActions[GestureType.TWO_FINGER_DOUBLE_TAP] = GestureAction.UNDO
         gestureActions[GestureType.TWO_FINGER_TRIPLE_TAP] = GestureAction.REDO
-        gestureActions[GestureType.THREE_FINGER_DOUBLE_TAP] = GestureAction.NONE
+        gestureActions[GestureType.THREE_FINGER_DOUBLE_TAP] = GestureAction.RESET_ZOOM
         gestureActions[GestureType.THREE_FINGER_TRIPLE_TAP] = GestureAction.NONE
         gestureActions[GestureType.FOUR_FINGER_DOUBLE_TAP] = GestureAction.NONE
         gestureActions[GestureType.FOUR_FINGER_TRIPLE_TAP] = GestureAction.NONE
+        gestureActions[GestureType.PINCH_ZOOM] = GestureAction.NONE  // Handled by the gesture detector
     }
 
     private fun performUndoRedoAction(isUndo: Boolean) {

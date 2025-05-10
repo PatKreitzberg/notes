@@ -20,17 +20,28 @@ import com.wyldsoft.notes.settings.SettingsRepository
 
 
 /**
- * Handles viewport transformations including scrolling and coordinates translation.
+ * Handles viewport transformations including scrolling, zooming, and coordinates translation.
  */
 class ViewportTransformer(
     private val context: Context,
     private val coroutineScope: CoroutineScope,
-    private val viewWidth: Int,
-    private val viewHeight: Int,
+    val viewWidth: Int,
+    val viewHeight: Int,
     val settingsRepository: SettingsRepository
 ) {
     // Viewport position
     var scrollY by mutableStateOf(0f)
+
+    // Zoom state
+    var zoomScale by mutableStateOf(1.0f)
+    private var zoomCenterX by mutableStateOf(0f)
+    private var zoomCenterY by mutableStateOf(0f)
+    private val minZoom = 1.0f
+    private val maxZoom = 2.0f
+
+    // Zoom indicator visibility
+    var isZoomIndicatorVisible by mutableStateOf(false)
+    private var zoomIndicatorJob: Job? = null
 
     // Document dimensions
     var documentHeight by mutableStateOf(viewHeight)
@@ -67,14 +78,76 @@ class ViewportTransformer(
      * Transforms a point from page coordinates to view coordinates
      */
     fun pageToViewCoordinates(x: Float, y: Float): Pair<Float, Float> {
-        return Pair(x, y - scrollY)
+        // Apply scale relative to the zoom center
+        // The zoom center is in page coordinates
+        val scaledX = (x - zoomCenterX) * zoomScale + zoomCenterX
+        val scaledY = (y - zoomCenterY) * zoomScale + zoomCenterY
+
+        // Apply scroll offset
+        return Pair(scaledX, scaledY - scrollY)
     }
 
     /**
      * Transforms a point from view coordinates to page coordinates
      */
     fun viewToPageCoordinates(x: Float, y: Float): Pair<Float, Float> {
-        return Pair(x, y + scrollY)
+        // First adjust for scrolling
+        val scrollAdjustedY = y + scrollY
+
+        // Then invert the zoom transformation
+        val pageX = zoomCenterX + (x - zoomCenterX) / zoomScale
+        val pageY = zoomCenterY + (scrollAdjustedY - zoomCenterY) / zoomScale
+
+        return Pair(pageX, pageY)
+    } 
+
+    /**
+     * Updates the zoom level around the specified center point
+     * @param scale The new zoom scale (1.0 = 100%)
+     * @param centerX The x-coordinate of the zoom center in view coordinates
+     * @param centerY The y-coordinate of the zoom center in view coordinates
+     */
+    fun zoom(scale: Float, centerX: Float, centerY: Float) {
+        // Constrain zoom scale
+        val newScale = scale.coerceIn(minZoom, maxZoom)
+
+        // Only update if scale has changed significantly (avoid micro-changes)
+        if (kotlin.math.abs(newScale - zoomScale) > 0.001f) {
+            // Get the focus point in page coordinates before zoom changes
+            val (pageFocusX, pageFocusY) = viewToPageCoordinates(centerX, centerY)
+
+            // Update the zoom scale
+            zoomScale = newScale
+
+            // Update the zoom center (in page coordinates)
+            zoomCenterX = pageFocusX
+            zoomCenterY = pageFocusY
+
+            // Show zoom indicator
+            showZoomIndicator()
+
+            // Notify about viewport change
+            notifyViewportChanged()
+
+            println("DEBUG: Zoom updated - scale=$zoomScale, center=($zoomCenterX, $zoomCenterY)")
+        }
+    }
+
+
+    /**
+     * Reset zoom to 100%
+     */
+    fun resetZoom() {
+        zoomScale = 1.0f
+        showZoomIndicator()
+        notifyViewportChanged()
+    }
+
+    /**
+     * Gets the current zoom scale as a percentage string
+     */
+    fun getZoomPercentage(): String {
+        return "${(zoomScale * 100).toInt()}%"
     }
 
     /**
@@ -92,12 +165,17 @@ class ViewportTransformer(
      */
     fun isRectVisible(rect: RectF): Boolean {
         // Transform the rectangle from page coordinates to view coordinates
-        val transformedBottom = rect.bottom - scrollY
-        val transformedTop = rect.top - scrollY
+        val zoomOffsetX = (viewWidth / 2f) - (zoomCenterX * zoomScale)
+        val zoomOffsetY = (viewHeight / 2f) - (zoomCenterY * zoomScale)
+
+        val transformedLeft = rect.left * zoomScale + zoomOffsetX
+        val transformedTop = (rect.top - scrollY) * zoomScale + zoomOffsetY
+        val transformedRight = rect.right * zoomScale + zoomOffsetX
+        val transformedBottom = (rect.bottom - scrollY) * zoomScale + zoomOffsetY
 
         // A rectangle is visible if ANY part of it is in the viewport
-        // If the bottom is above the viewport (negative) OR top is below the viewport (> viewHeight), it's not visible
-        return !(transformedBottom < 0 || transformedTop > viewHeight)
+        return !(transformedRight < 0 || transformedLeft > viewWidth ||
+                transformedBottom < 0 || transformedTop > viewHeight)
     }
 
     /**
@@ -122,8 +200,8 @@ class ViewportTransformer(
             1.0f
         }
 
-        println("scroll base scroll * speed ${baseScrollAmount*speedFactor}")
-        return baseScrollAmount * speedFactor
+        // Divide by zoom scale to adjust for zoomed view
+        return (baseScrollAmount * speedFactor) / zoomScale
     }
 
     /**
@@ -132,26 +210,31 @@ class ViewportTransformer(
     fun getVisibleRect(rect: RectF): RectF? {
         if (!isRectVisible(rect)) return null
 
-        val visibleRect = RectF(
-            rect.left,
-            max(rect.top, scrollY),
-            rect.right,
-            min(rect.bottom, scrollY + viewHeight)
-        )
+        // Transform to view coordinates with zoom
+        val zoomOffsetX = (viewWidth / 2f) - (zoomCenterX * zoomScale)
+        val zoomOffsetY = (viewHeight / 2f) - (zoomCenterY * zoomScale)
 
-        visibleRect.offset(0f, -scrollY)
-        return visibleRect
+        val viewLeft = rect.left * zoomScale + zoomOffsetX
+        val viewTop = (max(rect.top, scrollY) - scrollY) * zoomScale + zoomOffsetY
+        val viewRight = rect.right * zoomScale + zoomOffsetX
+        val viewBottom = (min(rect.bottom, scrollY + viewHeight / zoomScale) - scrollY) * zoomScale + zoomOffsetY
+
+        return RectF(viewLeft, viewTop, viewRight, viewBottom)
     }
 
     /**
      * Returns the current viewport rect in page coordinates
      */
     fun getCurrentViewportInPageCoordinates(): RectF {
+        // Calculate the actual viewport in page coordinates considering zoom
+        val (topLeftX, topLeftY) = viewToPageCoordinates(0f, 0f)
+        val (bottomRightX, bottomRightY) = viewToPageCoordinates(viewWidth.toFloat(), viewHeight.toFloat())
+
         return RectF(
-            0f,
-            scrollY,
-            viewWidth.toFloat(),
-            scrollY + viewHeight
+            topLeftX,
+            topLeftY,
+            bottomRightX,
+            bottomRightY
         )
     }
 
@@ -168,8 +251,9 @@ class ViewportTransformer(
      * Scrolls the viewport by the specified delta
      */
     fun scroll(deltaY: Float, shouldAnimate: Boolean = false): Boolean {
-        // Calculate new scrollY position
-        val newScrollY = scrollY + deltaY
+        // Calculate new scrollY position, adjust for zoom
+        val adjustedDelta = deltaY
+        val newScrollY = scrollY + adjustedDelta
 
         // Check top boundary
         if (newScrollY < minScrollY) {
@@ -186,7 +270,7 @@ class ViewportTransformer(
         }
 
         // Check if we need to extend the document
-        val viewportBottom = newScrollY + viewHeight
+        val viewportBottom = newScrollY + viewHeight / zoomScale
 
         // When pagination is enabled, we might need to extend beyond current pages
         if (paginationManager.isPaginationEnabled) {
@@ -256,6 +340,22 @@ class ViewportTransformer(
     }
 
     /**
+     * Shows the zoom indicator and hides it after a delay
+     */
+    private fun showZoomIndicator() {
+        isZoomIndicatorVisible = true
+
+        // Cancel previous job if it exists
+        zoomIndicatorJob?.cancel()
+
+        // Schedule hiding the indicator
+        zoomIndicatorJob = coroutineScope.launch {
+            delay(1500) // 1.5 second timeout
+            isZoomIndicatorVisible = false
+        }
+    }
+
+    /**
      * Shows the top boundary indicator and hides it after a delay
      */
     private fun showTopBoundaryIndicator() {
@@ -282,5 +382,3 @@ class ViewportTransformer(
         }
     }
 }
-
-
