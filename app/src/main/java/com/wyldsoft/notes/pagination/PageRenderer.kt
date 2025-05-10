@@ -54,7 +54,8 @@ class PageRenderer(
             viewportTop,
             viewportHeight,
             viewportWidth,
-            if (paginationManager.isPaginationEnabled) paginationManager else null
+            if (paginationManager.isPaginationEnabled) paginationManager else null,
+            viewportTransformer  // Pass the viewportTransformer to handle zoom
         )
 
         if (!paginationManager.isPaginationEnabled) return
@@ -66,11 +67,9 @@ class PageRenderer(
         // Draw exclusion zones
         renderExclusionZones(canvas, firstVisiblePageIndex, lastVisiblePageIndex)
 
-        // Draw page numbers
+        // Draw page numbers - adjusted for zoom scale
         renderPageNumbers(canvas, firstVisiblePageIndex, lastVisiblePageIndex, viewportTop, viewportWidth)
     }
-
-
 
     /**
      * Renders exclusion zones between pages
@@ -80,15 +79,18 @@ class PageRenderer(
         firstVisiblePageIndex: Int,
         lastVisiblePageIndex: Int
     ) {
+        // Apply zoom scale to the paint for consistent rendering
+        val zoomScale = viewportTransformer.zoomScale
+
         for (pageIndex in firstVisiblePageIndex..lastVisiblePageIndex) {
             // Skip the first page's top exclusion zone (doesn't exist)
             if (pageIndex > 0) {
                 val zoneTop = paginationManager.getExclusionZoneTopY(pageIndex - 1)
                 val zoneBottom = paginationManager.getExclusionZoneBottomY(pageIndex - 1)
 
-                // Transform to view coordinates
-                val viewZoneTop = zoneTop - viewportTransformer.scrollY
-                val viewZoneBottom = zoneBottom - viewportTransformer.scrollY
+                // Transform to view coordinates with zoom support
+                val (_, viewZoneTop) = viewportTransformer.pageToViewCoordinates(0f, zoneTop)
+                val (_, viewZoneBottom) = viewportTransformer.pageToViewCoordinates(0f, zoneBottom)
 
                 // Only draw if visible in viewport
                 if (viewZoneBottom >= 0 && viewZoneTop <= canvas.height) {
@@ -106,9 +108,9 @@ class PageRenderer(
             val zoneTop = paginationManager.getExclusionZoneTopY(pageIndex)
             val zoneBottom = paginationManager.getExclusionZoneBottomY(pageIndex)
 
-            // Transform to view coordinates
-            val viewZoneTop = zoneTop - viewportTransformer.scrollY
-            val viewZoneBottom = zoneBottom - viewportTransformer.scrollY
+            // Transform to view coordinates with zoom support
+            val (_, viewZoneTop) = viewportTransformer.pageToViewCoordinates(0f, zoneTop)
+            val (_, viewZoneBottom) = viewportTransformer.pageToViewCoordinates(0f, zoneBottom)
 
             // Only draw if visible in viewport
             if (viewZoneBottom >= 0 && viewZoneTop <= canvas.height) {
@@ -137,16 +139,20 @@ class PageRenderer(
         val paddingDp = 20.dp
         val padding = convertDpToPixel(paddingDp, viewportTransformer.getContext())
 
+        // Adjust text size for zoom
+        val zoomScale = viewportTransformer.zoomScale
+        pageNumberPaint.textSize = 40f * zoomScale
+
         for (pageIndex in firstVisiblePageIndex..lastVisiblePageIndex) {
             val pageNumber = paginationManager.getPageNumber(pageIndex)
             val pageTop = paginationManager.getPageTopY(pageIndex)
 
-            // Transform to view coordinates
-            val viewPageTop = pageTop - viewportTop
+            // Transform to view coordinates with zoom support
+            val (_, viewPageTop) = viewportTransformer.pageToViewCoordinates(0f, pageTop)
 
             // Calculate position (top right of page)
-            val x = viewportRight - padding
-            val y = viewPageTop + padding + pageNumberPaint.textSize
+            val x = viewportRight - padding * zoomScale
+            val y = viewPageTop + padding * zoomScale + pageNumberPaint.textSize
 
             // Only draw if the top of the page is visible
             if (viewPageTop >= 0 && viewPageTop <= canvas.height) {

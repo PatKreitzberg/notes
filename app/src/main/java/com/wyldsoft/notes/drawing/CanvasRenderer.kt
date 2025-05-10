@@ -50,6 +50,9 @@ class CanvasRenderer(
         // Clear the canvas
         canvas.drawColor(android.graphics.Color.WHITE)
 
+        // Render pagination elements - now with viewportTransformer for zoom support
+        pageRenderer.renderPaginationElements(canvas)
+
         // Draw only visible strokes
         for (stroke in page.strokes) {
             val strokeBounds = RectF(
@@ -66,9 +69,6 @@ class CanvasRenderer(
 
             page.drawStroke(canvas, stroke)
         }
-
-        // Render pagination elements
-        pageRenderer.renderPaginationElements(canvas)
 
         // Render selection if in selection mode and handler exists
         if (editorState.mode == Mode.Selection && selectionHandler != null) {
