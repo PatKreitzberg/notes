@@ -209,6 +209,8 @@ class ViewportTransformer(
         val (topLeftX, topLeftY)         = viewToPageCoordinates(0f, 0f)
         val (bottomRightX, bottomRightY) = viewToPageCoordinates(viewWidth.toFloat(), viewHeight.toFloat())
 
+        println("getCurrentViewport ($topLeftX, $topLeftY)  ($bottomRightX, $bottomRightY)")
+
         return RectF(
             topLeftX,
             topLeftY,
@@ -257,11 +259,25 @@ class ViewportTransformer(
             val contentWidth = viewWidth * zoomScale
             val excessWidth = contentWidth - viewWidth
 
-            // Maximum horizontal scroll is half the excess width
-            // (This centers the zoomed content if the user doesn't scroll)
-            val maxScrollX = excessWidth / 2
+            // Calculate the page coordinates of the left and right edges after the proposed scroll
+            val (leftEdgePageX, _) = viewToPageCoordinates(0f, 0f)
+            val (rightEdgePageX, _) = viewToPageCoordinates(viewWidth.toFloat(), 0f)
 
-            // Ensure scrollX stays within bounds
+            // Prevent scrolling beyond the document edges (horizontal constraints)
+            if (leftEdgePageX < 0f) {
+                // Left edge of view would show content beyond the document's left edge (x=0)
+                // Adjust scrollX to align the left edge of the document with the left edge of the view
+                val adjustment = leftEdgePageX * zoomScale
+                newScrollX -= adjustment
+            } else if (rightEdgePageX > viewWidth) {
+                // Right edge of view would show content beyond the document's right edge
+                // Adjust scrollX to align the right edge of the document with the right edge of the view
+                val adjustment = (rightEdgePageX - viewWidth) * zoomScale
+                newScrollX += adjustment
+            }
+
+            // Ensure scrollX stays within bounds (this is the existing check)
+            val maxScrollX = excessWidth / 2
             newScrollX = newScrollX.coerceIn(-maxScrollX, maxScrollX)
         } else {
             // When not zoomed, no horizontal scrolling
