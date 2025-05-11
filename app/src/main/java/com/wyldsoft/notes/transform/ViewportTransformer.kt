@@ -103,7 +103,32 @@ class ViewportTransformer(
         val pageY = zoomCenterY + (scrollAdjustedY - zoomCenterY) / zoomScale
 
         return Pair(pageX, pageY)
-    } 
+    }
+
+
+    /**
+     * Calculates what the viewport would be with the given scroll values
+     */
+    private fun calculateViewportWithScroll(proposedScrollX: Float, proposedScrollY: Float): RectF {
+        // Function that mimics viewToPageCoordinates but uses provided scroll values
+        fun viewToPageWithScroll(x: Float, y: Float, scrollX: Float, scrollY: Float): Pair<Float, Float> {
+            // First adjust for scrolling
+            val scrollAdjustedY = y + scrollY
+            val scrollAdjustedX = x + scrollX
+
+            // Then invert the zoom transformation
+            val pageX = zoomCenterX + (scrollAdjustedX - zoomCenterX) / zoomScale
+            val pageY = zoomCenterY + (scrollAdjustedY - zoomCenterY) / zoomScale
+
+            return Pair(pageX, pageY)
+        }
+
+        // Calculate viewport corners with the proposed scroll values
+        val (topLeftX, topLeftY) = viewToPageWithScroll(0f, 0f, proposedScrollX, proposedScrollY)
+        val (bottomRightX, bottomRightY) = viewToPageWithScroll(viewWidth.toFloat(), viewHeight.toFloat(), proposedScrollX, proposedScrollY)
+
+        return RectF(topLeftX, topLeftY, bottomRightX, bottomRightY)
+    }
 
     /**
      * Updates the zoom level around the specified center point
@@ -145,12 +170,32 @@ class ViewportTransformer(
                 // Apply an offset that increases with zoom level and focus distance from center
                 val scrollXAdjustment = contentWidthDelta * focusRatio * 0.5f
 
-                // Apply adjustment and constrain
+                // Calculate the proposed new scrollX
+                var proposedScrollX = scrollX + scrollXAdjustment
+
+                // Calculate what the viewport would be with this scrollX
+                val proposedViewport = calculateViewportWithScroll(proposedScrollX, scrollY)
+
+                // Check if viewport would go beyond document edges
+                if (proposedViewport.left < 0) {
+                    // Viewport would go beyond left edge
+                    proposedScrollX -= proposedViewport.left * zoomScale
+                }
+
+                if (proposedViewport.right > viewWidth) {
+                    // Viewport would go beyond right edge
+                    proposedScrollX += (viewWidth - proposedViewport.right) * zoomScale
+                }
+
+                // Apply the constrained scrollX
+                scrollX = proposedScrollX
+
+                // Additional bounds check from the original code
                 val contentWidth = viewWidth * zoomScale
                 val excessWidth = contentWidth - viewWidth
                 val maxScrollX = excessWidth / 2
 
-                scrollX = (scrollX + scrollXAdjustment).coerceIn(-maxScrollX, maxScrollX)
+                scrollX = scrollX.coerceIn(-maxScrollX, maxScrollX)
             } else {
                 // Reset horizontal scroll when at normal zoom
                 scrollX = 0f
