@@ -45,8 +45,10 @@ class DrawingGestureDetector(
     private var maxPointerCount = 0
     private var tapCount = 0
     private var countedFirstTap = false
+    private var lastTouchX = 0f
     private var lastTouchY = 0f
     private var isScrolling = false
+    private var initialX = 0f
     private var initialY = 0f
 
     // Custom pinch-to-zoom tracking variables
@@ -174,6 +176,10 @@ class DrawingGestureDetector(
         }
     }
 
+    private fun xyDistance(x: Float, y: Float): Float {
+        return sqrt((x*x) + (y*y))
+    }
+
     /**
      * Process touch events to detect gestures.
      *
@@ -181,6 +187,11 @@ class DrawingGestureDetector(
      * @return True if the event was consumed, false otherwise
      */
     fun onTouchEvent(event: MotionEvent): Boolean {
+        fun updateScrollingVars(deltaX: Float, deltaY: Float) {
+            viewportTransformer.scroll(deltaX, deltaY, true)
+            lastTouchX = event.x
+            lastTouchY = event.y
+        }
         // Check if this is a stylus input - if so, ignore for gesture detection
         val isStylusInput = isStylusEvent(event)
         if (isStylusInput) {
@@ -210,17 +221,16 @@ class DrawingGestureDetector(
 
                 // Handle scrolling if not zooming
                 if (!isZooming) {
+                    var deltaX = lastTouchX - event.x
+                    var deltaY = lastTouchY - event.y
+
                     if (!isScrolling) {
-                        var deltaY = initialY - event.y
-                        if (kotlin.math.abs(deltaY) > SCROLL_THRESHOLD) {
+                        if (xyDistance(deltaX, deltaY) > SCROLL_THRESHOLD) {
                             isScrolling = true
-                            viewportTransformer.scroll(deltaY, true)
-                            lastTouchY = event.y
+                            updateScrollingVars(deltaX, deltaY)
                         }
                     } else {
-                        var deltaY = lastTouchY - event.y
-                        viewportTransformer.scroll(deltaY, true)
-                        lastTouchY = event.y
+                        updateScrollingVars(deltaX, deltaY)
                     }
                 }
             }
@@ -241,6 +251,8 @@ class DrawingGestureDetector(
 
             MotionEvent.ACTION_DOWN -> {
                 // First finger down - start tracking a new gesture
+                lastTouchX = event.x
+                initialX = event.x
                 lastTouchY = event.y
                 initialY = event.y
                 if (!isInGesture) {

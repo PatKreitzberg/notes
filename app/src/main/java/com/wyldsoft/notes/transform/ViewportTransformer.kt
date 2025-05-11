@@ -31,6 +31,7 @@ class ViewportTransformer(
 ) {
     // Viewport position
     var scrollY by mutableStateOf(0f)
+    var scrollX by mutableStateOf(0f)
 
     // Zoom state
     var zoomScale by mutableStateOf(1.0f)
@@ -54,6 +55,7 @@ class ViewportTransformer(
 
     // The minimum scroll value
     private val minScrollY = 0f
+    private val minScrollX = 0f
 
     // UI indicators
     var isScrollIndicatorVisible by mutableStateOf(false)
@@ -84,7 +86,7 @@ class ViewportTransformer(
         val scaledY = (y - zoomCenterY) * zoomScale + zoomCenterY
 
         // Apply scroll offset
-        return Pair(scaledX, scaledY - scrollY)
+        return Pair(scaledX - scrollX, scaledY - scrollY)
     }
 
     /**
@@ -93,9 +95,11 @@ class ViewportTransformer(
     fun viewToPageCoordinates(x: Float, y: Float): Pair<Float, Float> {
         // First adjust for scrolling
         val scrollAdjustedY = y + scrollY
+        val scrollAdjustedX = x + scrollX
+
 
         // Then invert the zoom transformation
-        val pageX = zoomCenterX + (x - zoomCenterX) / zoomScale
+        val pageX = zoomCenterX + (scrollAdjustedX - zoomCenterX) / zoomScale
         val pageY = zoomCenterY + (scrollAdjustedY - zoomCenterY) / zoomScale
 
         return Pair(pageX, pageY)
@@ -199,10 +203,10 @@ class ViewportTransformer(
     /**
      * Scrolls the viewport by the specified delta
      */
-    fun scroll(deltaY: Float, shouldAnimate: Boolean = false): Boolean {
+    fun scroll(deltaX: Float, deltaY: Float, shouldAnimate: Boolean = false): Boolean {
         // Calculate new scrollY position, adjust for zoom
-        val adjustedDelta = deltaY
-        val newScrollY = scrollY + adjustedDelta
+        val adjustedDeltaY = deltaY
+        val newScrollY = scrollY + adjustedDeltaY
 
         // Check top boundary
         if (newScrollY < minScrollY) {
@@ -215,6 +219,32 @@ class ViewportTransformer(
             } else {
                 showTopBoundaryIndicator()
                 return false
+            }
+        }
+
+        val adjustedDeltaX = deltaX
+        var newScrollX = scrollX + adjustedDeltaX
+
+        // Check top boundary
+        if (zoomScale != 1.0f) {
+            if (newScrollX < minScrollX) {
+                if (scrollX > minScrollX) {
+                    scrollX = minScrollX
+                    showTopBoundaryIndicator()
+                    showScrollIndicator()
+                    notifyViewportChanged()
+                    return true
+                } else {
+                    showTopBoundaryIndicator()
+                    return false
+                }
+            } else { // don't let them scroll
+                val maxScrollX = newScrollX + (viewWidth / zoomScale)
+                println("scrollX ${scrollX}  scrollY ${scrollY}  newScrollX $newScrollX  maxScrollX $maxScrollX viewWidth $viewWidth")
+                if (newScrollX > maxScrollX) {
+                    scrollX = maxScrollX
+                    return true
+                }
             }
         }
 
@@ -236,7 +266,11 @@ class ViewportTransformer(
         }
 
         // Update scroll position
+        if (zoomScale != 1.0f) {
+            scrollX = newScrollX
+        }
         scrollY = newScrollY
+
         showScrollIndicator()
 
         // Throttle updates

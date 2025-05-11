@@ -123,11 +123,11 @@ class GestureHandler(
             }
             GestureAction.SCROLL_UP -> {
                 println("Executing action: Scroll Up")
-                viewportTransformer?.scroll(-200f)
+                viewportTransformer?.scroll(-200f, -200f)
             }
             GestureAction.SCROLL_DOWN -> {
                 println("Executing action: Scroll Down")
-                viewportTransformer?.scroll(200f)
+                viewportTransformer?.scroll(200f, -200f)
             }
             GestureAction.NEXT_PAGE -> {
                 println("Executing action: Next Page")
