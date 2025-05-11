@@ -294,33 +294,29 @@ class ViewportTransformer(
             }
         }
 
-        val adjustedDeltaX = deltaX
+        // Only allow horizontal scrolling when zoomed in
+        val adjustedDeltaX = if (zoomScale > 1.0f) deltaX else 0f
         var newScrollX = scrollX + adjustedDeltaX
 
         // Handle horizontal scrolling based on zoom
         if (zoomScale > 1.0f) {
-            // Calculate how much the content has expanded beyond the view width
+            // Calculate the content width when zoomed
             val contentWidth = viewWidth * zoomScale
             val excessWidth = contentWidth - viewWidth
 
-            // Calculate the page coordinates of the left and right edges after the proposed scroll
-            val (leftEdgePageX, _) = viewToPageCoordinates(0f, 0f)
-            val (rightEdgePageX, _) = viewToPageCoordinates(viewWidth.toFloat(), 0f)
+            // Calculate what the viewport would be with the proposed scrollX
+            val proposedViewport = calculateViewportWithScroll(newScrollX, scrollY)
 
-            // Prevent scrolling beyond the document edges (horizontal constraints)
-            if (leftEdgePageX < 0f) {
-                // Left edge of view would show content beyond the document's left edge (x=0)
-                // Adjust scrollX to align the left edge of the document with the left edge of the view
-                val adjustment = leftEdgePageX * zoomScale
-                newScrollX -= adjustment
-            } else if (rightEdgePageX > viewWidth) {
+            // Prevent scrolling beyond document edges
+            if (proposedViewport.left < 0f) {
+                // Left edge of view would show content beyond the document's left edge
+                newScrollX -= proposedViewport.left * zoomScale
+            } else if (proposedViewport.right > viewWidth) {
                 // Right edge of view would show content beyond the document's right edge
-                // Adjust scrollX to align the right edge of the document with the right edge of the view
-                val adjustment = (rightEdgePageX - viewWidth) * zoomScale
-                newScrollX += adjustment
+                newScrollX += (viewWidth - proposedViewport.right) * zoomScale
             }
 
-            // Ensure scrollX stays within bounds (this is the existing check)
+            // Final constraint check
             val maxScrollX = excessWidth / 2
             newScrollX = newScrollX.coerceIn(-maxScrollX, maxScrollX)
         } else {
@@ -346,9 +342,7 @@ class ViewportTransformer(
         }
 
         // Update scroll position
-        if (zoomScale != 1.0f) {
-            scrollX = newScrollX
-        }
+        scrollX = newScrollX
         scrollY = newScrollY
 
         showScrollIndicator()
