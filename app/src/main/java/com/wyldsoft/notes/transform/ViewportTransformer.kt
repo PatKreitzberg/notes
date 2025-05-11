@@ -115,8 +115,11 @@ class ViewportTransformer(
         // Constrain zoom scale
         val newScale = scale.coerceIn(minZoom, maxZoom)
 
-        // Only update if scale has changed significantly (avoid micro-changes)
+        // Only update if scale has changed significantly
         if (kotlin.math.abs(newScale - zoomScale) > 0.001f) {
+            // Store the previous scale for calculations
+            val previousScale = zoomScale
+
             // Get the focus point in page coordinates before zoom changes
             val (pageFocusX, pageFocusY) = viewToPageCoordinates(centerX, centerY)
 
@@ -127,16 +130,39 @@ class ViewportTransformer(
             zoomCenterX = pageFocusX
             zoomCenterY = pageFocusY
 
+            // Adjust scrollX to maintain horizontal position relative to focus point
+            // Only if zoomed in
+            if (zoomScale > 1.0f) {
+                // Calculate how much the content width has changed
+                val contentWidthDelta = viewWidth * (zoomScale - previousScale)
+
+                // Calculate the horizontal offset relative to view center
+                val horizontalFocusOffset = centerX - (viewWidth / 2)
+
+                // Calculate the proportion of the focus point from the center (0 to 1)
+                val focusRatio = horizontalFocusOffset / (viewWidth / 2)
+
+                // Apply an offset that increases with zoom level and focus distance from center
+                val scrollXAdjustment = contentWidthDelta * focusRatio * 0.5f
+
+                // Apply adjustment and constrain
+                val contentWidth = viewWidth * zoomScale
+                val excessWidth = contentWidth - viewWidth
+                val maxScrollX = excessWidth / 2
+
+                scrollX = (scrollX + scrollXAdjustment).coerceIn(-maxScrollX, maxScrollX)
+            } else {
+                // Reset horizontal scroll when at normal zoom
+                scrollX = 0f
+            }
+
             // Show zoom indicator
             showZoomIndicator()
 
             // Notify about viewport change
             notifyViewportChanged()
-
-            println("DEBUG: Zoom updated - scale=$zoomScale, center=($zoomCenterX, $zoomCenterY)")
         }
     }
-
 
     /**
      * Reset zoom to 100%
@@ -180,7 +206,7 @@ class ViewportTransformer(
      */
     fun getCurrentViewportInPageCoordinates(): RectF {
         // Transform the view corners to page coordinates
-        val (topLeftX, topLeftY) = viewToPageCoordinates(0f, 0f)
+        val (topLeftX, topLeftY)         = viewToPageCoordinates(0f, 0f)
         val (bottomRightX, bottomRightY) = viewToPageCoordinates(viewWidth.toFloat(), viewHeight.toFloat())
 
         return RectF(
@@ -225,27 +251,21 @@ class ViewportTransformer(
         val adjustedDeltaX = deltaX
         var newScrollX = scrollX + adjustedDeltaX
 
-        // Check top boundary
-        if (zoomScale != 1.0f) {
-            if (newScrollX < minScrollX) {
-                if (scrollX > minScrollX) {
-                    scrollX = minScrollX
-                    showTopBoundaryIndicator()
-                    showScrollIndicator()
-                    notifyViewportChanged()
-                    return true
-                } else {
-                    showTopBoundaryIndicator()
-                    return false
-                }
-            } else { // don't let them scroll
-                val maxScrollX = newScrollX + (viewWidth / zoomScale)
-                println("scrollX ${scrollX}  scrollY ${scrollY}  newScrollX $newScrollX  maxScrollX $maxScrollX viewWidth $viewWidth")
-                if (newScrollX > maxScrollX) {
-                    scrollX = maxScrollX
-                    return true
-                }
-            }
+        // Handle horizontal scrolling based on zoom
+        if (zoomScale > 1.0f) {
+            // Calculate how much the content has expanded beyond the view width
+            val contentWidth = viewWidth * zoomScale
+            val excessWidth = contentWidth - viewWidth
+
+            // Maximum horizontal scroll is half the excess width
+            // (This centers the zoomed content if the user doesn't scroll)
+            val maxScrollX = excessWidth / 2
+
+            // Ensure scrollX stays within bounds
+            newScrollX = newScrollX.coerceIn(-maxScrollX, maxScrollX)
+        } else {
+            // When not zoomed, no horizontal scrolling
+            newScrollX = 0f
         }
 
         // Check if we need to extend the document
