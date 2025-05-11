@@ -105,7 +105,6 @@ class ViewportTransformer(
         return Pair(pageX, pageY)
     }
 
-
     /**
      * Calculates what the viewport would be with the given scroll values
      */
