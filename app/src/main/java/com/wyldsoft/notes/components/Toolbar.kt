@@ -52,9 +52,7 @@ import com.wyldsoft.notes.R
 import com.wyldsoft.notes.classes.SnackConf
 import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.views.PageView
-import androidx.compose.material.icons.filled.TextFields  // Add TextFields icon for the HTR button
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+
 
 
 @Composable
@@ -67,7 +65,7 @@ fun Toolbar(
     drawingManager: DrawingManager,
     noteTitle: String,
     onUpdateNoteName: (String) -> Unit,
-    page: PageView = state.pageView  // Add this parameter with default value
+    page: PageView = state.pageView
 ) {
     val scope = rememberCoroutineScope()
     var isStrokeSelectionOpen by remember { mutableStateOf(false) }
@@ -76,8 +74,6 @@ fun Toolbar(
     var haveStrokePanelRect by remember { mutableStateOf(false) }
     val EraserIcon = ImageVector.vectorResource(R.drawable.eraser)
 
-    // State for HTR processing
-    var isHtrProcessing by remember { mutableStateOf(false) }
 
     fun removeStrokeOptionPanelRect() {
         state.stateExcludeRects.remove(ExcludeRects.StrokeOptions)
@@ -120,73 +116,6 @@ fun Toolbar(
             state.pen = pen
         }
     }
-
-    // Function to handle HTR operation
-    fun handleHandwritingRecognition() {
-        // Don't allow multiple concurrent HTR operations
-        if (isHtrProcessing) return
-
-        scope.launch {
-            try {
-                isHtrProcessing = true
-
-                // Initialize recognizer
-                val recognizer = HandwritingRecognizer(page.context)
-
-                println("HTR: Initializing recognizer...")
-                val initSuccess = recognizer.initialize()
-
-                if (!initSuccess) {
-                    println("HTR: Failed to initialize recognizer")
-                    return@launch
-                }
-
-                // Get all strokes from the page
-                val allStrokes = page.strokes
-
-                println("HTR: Starting recognition on ${allStrokes.size} strokes...")
-
-                // Perform recognition
-                val results = recognizer.recognizeStrokes(allStrokes)
-
-                // Output results to console
-                if (results.isNotEmpty()) {
-                    println("HTR RESULTS:")
-                    results.forEachIndexed { index, text ->
-                        println("HTR Candidate $index: $text")
-                    }
-                } else {
-                    println("HTR: No text recognized")
-                }
-
-                // Clean up
-                recognizer.close()
-
-                // Show a snackbar notification
-                SnackState.globalSnackFlow.emit(
-                    SnackConf(
-                        text = if (results.isNotEmpty()) "Recognition complete" else "No text recognized",
-                        duration = 3000
-                    )
-                )
-
-            } catch (e: Exception) {
-                println("HTR ERROR: ${e.message}")
-                e.printStackTrace()
-
-                // Show error in snackbar
-                SnackState.globalSnackFlow.emit(
-                    SnackConf(
-                        text = "HTR failed: ${e.message}",
-                        duration = 3000
-                    )
-                )
-            } finally {
-                isHtrProcessing = false
-            }
-        }
-    }
-
 
     LaunchedEffect(Unit) {
         DrawingManager.isDrawing.collect {
@@ -294,21 +223,6 @@ fun Toolbar(
                         .fillMaxHeight()
                         .width(0.5.dp)
                         .background(androidx.compose.ui.graphics.Color.Black)
-                )
-
-                // Handwriting recognition button
-                ToolbarButton(
-                    onSelect = {
-                        handleHandwritingRecognition()
-                        // Close stroke options panel if open
-                        if (isStrokeSelectionOpen) {
-                            removeStrokeOptionPanelRect()
-                        }
-                    },
-                    imageVector = Icons.Default.TextFields,
-                    isSelected = isHtrProcessing,
-                    isEnabled = !isHtrProcessing,
-                    contentDescription = "Recognize Handwriting"
                 )
 
                 Box(
