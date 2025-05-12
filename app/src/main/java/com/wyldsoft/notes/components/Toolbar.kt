@@ -55,6 +55,10 @@ import com.wyldsoft.notes.views.PageView
 import androidx.compose.material.icons.filled.TextFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.collectAsState
+import com.wyldsoft.notes.search.SearchManager
+import com.wyldsoft.notes.components.SearchComponent
 
 
 
@@ -69,6 +73,7 @@ fun Toolbar(
     noteTitle: String,
     onUpdateNoteName: (String) -> Unit,
     coroutineScope: CoroutineScope,
+    searchManager: SearchManager,
     page: PageView = state.pageView
 ) {
     val scope = rememberCoroutineScope()
@@ -278,6 +283,22 @@ fun Toolbar(
                     contentDescription = "Recognize Text"
                 )
 
+                // Search button
+                ToolbarButton(
+                    onSelect = {
+                        // Toggle search visibility
+                        searchManager.isSearchVisible = !searchManager.isSearchVisible
+
+                        // Close stroke options panel if open
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
+                    },
+                    imageVector = Icons.Default.Search,
+                    isSelected = searchManager.isSearchVisible,
+                    contentDescription = "Search"
+                )
+
                 Box(
                     Modifier
                         .fillMaxHeight()
@@ -468,6 +489,38 @@ fun Toolbar(
                 }
             }
         }
+        SearchComponent(
+            isVisible = searchManager.isSearchVisible,
+            onClose = { searchManager.isSearchVisible = false },
+            onSearch = { query ->
+                coroutineScope.launch {
+                    searchManager.search(query, page)
+                }
+            },
+            onNext = {
+                searchManager.nextResult()
+                coroutineScope.launch {
+                    searchManager.getCurrentResult()?.let { result ->
+                        // Scroll to result position
+                        viewportTransformer.scrollToPosition(result.yPosition)
+                        DrawingManager.refreshUi.emit(Unit)
+                    }
+                }
+            },
+            onPrevious = {
+                searchManager.previousResult()
+                coroutineScope.launch {
+                    searchManager.getCurrentResult()?.let { result ->
+                        // Scroll to result position
+                        viewportTransformer.scrollToPosition(result.yPosition)
+                        DrawingManager.refreshUi.emit(Unit)
+                    }
+                }
+            },
+            isSearching = searchManager.isSearching,
+            resultsCount = searchManager.searchResults.collectAsState().value.size,
+            currentResult = searchManager.currentResultIndex
+        )
     } else {
         ToolbarButton(
             onSelect = { state.isToolbarOpen = true },

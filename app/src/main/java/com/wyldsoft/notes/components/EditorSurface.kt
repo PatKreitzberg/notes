@@ -13,6 +13,7 @@ import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
+import com.wyldsoft.notes.search.SearchManager
 
 @Composable
 @ExperimentalComposeUiApi
@@ -20,7 +21,8 @@ fun EditorSurface(
     state: EditorState,
     page: PageView,
     settingsRepository: SettingsRepository,
-    templateRenderer: TemplateRenderer
+    templateRenderer: TemplateRenderer,
+    searchManager: SearchManager? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -36,7 +38,8 @@ fun EditorSurface(
                 state,
                 page,
                 settingsRepository,
-                templateRenderer
+                templateRenderer,
+                searchManager // Pass the search manager
             ).apply {
                 init()
                 registerObservers()

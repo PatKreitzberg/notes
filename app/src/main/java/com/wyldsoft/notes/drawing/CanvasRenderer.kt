@@ -9,6 +9,9 @@ import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.utils.Mode
+import com.wyldsoft.notes.search.SearchHighlighter
+import com.wyldsoft.notes.search.SearchManager
+
 
 /**
  * Handles rendering the canvas content to the screen.
@@ -20,13 +23,18 @@ class CanvasRenderer(
     private val settingsRepository: SettingsRepository,
     private val templateRenderer: TemplateRenderer,
     private val editorState: EditorState,
-    private val selectionHandler: SelectionHandler? = null
+    private val selectionHandler: SelectionHandler? = null,
+    private val searchManager: SearchManager? = null
 ) {
     private val pageRenderer: PageRenderer = PageRenderer(
         page.viewportTransformer,
         settingsRepository,
         templateRenderer
     )
+
+    private val searchHighlighter: SearchHighlighter? = searchManager?.let {
+        SearchHighlighter(it, page.viewportTransformer)
+    }
 
     /**
      * Initializes the renderer and draws initial content
@@ -69,6 +77,8 @@ class CanvasRenderer(
 
             page.drawStroke(canvas, stroke)
         }
+
+        searchHighlighter?.drawHighlights(canvas)
 
         // Render selection if in selection mode and handler exists
         if (editorState.mode == Mode.Selection && selectionHandler != null) {

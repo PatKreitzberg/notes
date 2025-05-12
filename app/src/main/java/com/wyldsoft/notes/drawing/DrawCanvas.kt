@@ -22,6 +22,7 @@ import com.wyldsoft.notes.templates.TemplateRenderer
 import com.wyldsoft.notes.views.PageView
 import com.wyldsoft.notes.selection.SelectionHandler
 import com.wyldsoft.notes.history.HistoryManager
+import com.wyldsoft.notes.search.SearchManager
 
 /*
  * The main canvas component that coordinates all drawing operations.
@@ -33,7 +34,8 @@ class DrawCanvas(
     val state: EditorState,
     val page: PageView,
     val settingsRepository: SettingsRepository,
-    val templateRenderer: TemplateRenderer
+    val templateRenderer: TemplateRenderer,
+    val searchManager: SearchManager? = null
 ) : SurfaceView(context) {
     private val TAG="DrawCanvas:"
     private lateinit var selectionHandler: SelectionHandler
@@ -69,7 +71,8 @@ class DrawCanvas(
             settingsRepository,
             templateRenderer,
             state,
-            selectionHandler
+            selectionHandler,
+            searchManager
         )
 
         // Initialize touch event handler

@@ -52,6 +52,9 @@ import com.wyldsoft.notes.utils.convertDpToPixel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.wyldsoft.notes.search.SearchManager
+import androidx.compose.runtime.collectAsState
+
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -109,6 +112,13 @@ fun EditorView(noteId: String? = null) {
                 context,
                 editorState,
                 page,
+                scope
+            )
+        }
+
+        val searchManager = remember {
+            SearchManager(
+                context,
                 scope
             )
         }
@@ -264,8 +274,10 @@ fun EditorView(noteId: String? = null) {
                     state = editorState,
                     page = page,
                     settingsRepository = settingsRepository,
-                    templateRenderer = templateRenderer
+                    templateRenderer = templateRenderer,
+                    searchManager = searchManager
                 )
+
 
                 // Scroll indicator
                 ScrollIndicator(
@@ -318,6 +330,7 @@ fun EditorView(noteId: String? = null) {
                             }
                         },
                         coroutineScope = scope,
+                        searchManager = searchManager,
                         page = page
                     )
                 }

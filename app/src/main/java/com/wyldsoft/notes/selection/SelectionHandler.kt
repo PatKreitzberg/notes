@@ -1,4 +1,3 @@
-// app/src/main/java/com/wyldsoft/notes/selection/SelectionHandler.kt
 package com.wyldsoft.notes.selection
 
 import android.content.Context

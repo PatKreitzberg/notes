@@ -262,6 +262,27 @@ class ViewportTransformer(
     }
 
     /**
+     * Scrolls to a specific y-position in the document, centering it in the viewport if possible
+     * @param yPosition The y-position to scroll to
+     */
+    fun scrollToPosition(yPosition: Float) {
+        // Calculate the target position (centered in viewport)
+        val targetY = yPosition - (viewHeight / (2 * zoomScale))
+
+        // Make sure we don't scroll beyond valid boundaries
+        val boundedY = targetY.coerceIn(0f, documentHeight - viewHeight.toFloat())
+
+        // Set the new scroll position
+        scrollY = boundedY
+
+        // Show the scroll indicator
+        showScrollIndicator()
+
+        // Notify that the viewport changed
+        notifyViewportChanged()
+    }
+
+    /**
      * Updates the document height
      */
     fun updateDocumentHeight(newHeight: Int) {
