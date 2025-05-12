@@ -46,6 +46,9 @@ class PageView(
     private val saveTopic = MutableSharedFlow<Unit>()
     var height by mutableIntStateOf(viewHeight)
 
+    //htr
+    private var htrManager: com.wyldsoft.notes.htr.HTRManager? = null
+
     // Two separate flows for different operations
     private val _strokesAdded = MutableStateFlow<List<Stroke>>(emptyList())
     val strokesAdded = _strokesAdded.asStateFlow()
@@ -81,12 +84,34 @@ class PageView(
         windowedCanvas.drawColor(Color.WHITE)
     }
 
+    fun initializeHTRManager() {
+        if (htrManager == null) {
+            htrManager = com.wyldsoft.notes.htr.HTRManager(context, coroutineScope)
+        }
+    }
+
+    suspend fun recognizeText(): String {
+        // Initialize HTR Manager if not already done
+        if (htrManager == null) {
+            initializeHTRManager()
+        }
+
+        // Use HTR Manager to recognize text
+        return htrManager?.recognizePageStrokes(this) ?: "Text recognition not available"
+    }
+
+
+
     fun deactivate() {
         val app = context.applicationContext as? com.wyldsoft.notes.NotesApp
         if (app?.activePageView?.id == id) {
             app.activePageView = null
             app.setActivePageId("")
         }
+
+        // Clean up HTR resources
+        htrManager?.cleanup()
+        htrManager = null
     }
 
     fun updateVisibleStrokes() {
@@ -96,9 +121,6 @@ class PageView(
         strokes.forEach { stroke ->
             if (isStrokeVisible(stroke)) {
                 _visibleStrokes.add(stroke)
-                println("stroke: is  visible at (${stroke.left}, ${stroke.right})  viewWidth $viewWidth")
-            } else{
-                println("stroke: not visible at (${stroke.left}, ${stroke.right})  viewWidth $viewWidth")
             }
         }
     }
@@ -174,7 +196,6 @@ class PageView(
             // Register note change for syncing
             (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
                 if (registerChange) {
-                    println("registerNoteChanged  addStrokes $registerChange")
                     app.syncManager.changeTracker.registerNoteChanged(id)
                 }
             }
@@ -197,7 +218,6 @@ class PageView(
             _strokesChanged.emit(emptyList())
 
             // Register note change for syncing
-            println("registerNoteChanged removeStrokes")
             (context.applicationContext as? com.wyldsoft.notes.NotesApp)?.let { app ->
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
@@ -331,7 +351,6 @@ class PageView(
     fun drawStroke(canvas: Canvas, stroke: Stroke) {
         // Check if stroke is visible first
         if (!isStrokeVisible(stroke)) {
-            println("scroll drawStroke skip stroke=${stroke.createdScrollY}")
             return // Skip drawing if stroke is not visible
         }
 

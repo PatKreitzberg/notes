@@ -253,8 +253,6 @@ class ViewportTransformer(
         val (topLeftX, topLeftY)         = viewToPageCoordinates(0f, 0f)
         val (bottomRightX, bottomRightY) = viewToPageCoordinates(viewWidth.toFloat(), viewHeight.toFloat())
 
-        println("getCurrentViewport ($topLeftX, $topLeftY)  ($bottomRightX, $bottomRightY)")
-
         return RectF(
             topLeftX,
             topLeftY,

@@ -89,6 +89,7 @@ class EditorState(val pageId: String, val pageView: PageView) {
     var stateExcludeRectsModified by mutableStateOf(false)
     var canUndo by mutableStateOf(false)
     var canRedo by mutableStateOf(false)
+    var isRecognizingText by mutableStateOf(false)
 
     var penSettings by mutableStateOf(
         mapOf(

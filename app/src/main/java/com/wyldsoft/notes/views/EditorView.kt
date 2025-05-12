@@ -142,6 +142,8 @@ fun EditorView(noteId: String? = null) {
                             DrawingManager.refreshUi.emit(Unit)
                         }
                     }
+                    // init HTR manager
+                    page.initializeHTRManager()
                 } catch (e: Exception) {
                     println("Error loading strokes: ${e.message}")
                 }
@@ -173,6 +175,8 @@ fun EditorView(noteId: String? = null) {
                     pageNotebookRepository.addPageToNotebook(pageId, notebookId)
                     println("DEBUG: Associated new note $pageId with notebook $notebookId")
                 }
+                // init HTR manager
+                page.initializeHTRManager()
             }
         }
 
@@ -313,6 +317,7 @@ fun EditorView(noteId: String? = null) {
                                 }
                             }
                         },
+                        coroutineScope = scope,
                         page = page
                     )
                 }

@@ -52,6 +52,9 @@ import com.wyldsoft.notes.R
 import com.wyldsoft.notes.classes.SnackConf
 import com.wyldsoft.notes.classes.SnackState
 import com.wyldsoft.notes.views.PageView
+import androidx.compose.material.icons.filled.TextFormat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 
 
@@ -65,6 +68,7 @@ fun Toolbar(
     drawingManager: DrawingManager,
     noteTitle: String,
     onUpdateNoteName: (String) -> Unit,
+    coroutineScope: CoroutineScope,
     page: PageView = state.pageView
 ) {
     val scope = rememberCoroutineScope()
@@ -252,6 +256,26 @@ fun Toolbar(
                     imageVector = Icons.Default.SelectAll,
                     isSelected = state.mode == Mode.Selection,
                     contentDescription = "Selection Tool"
+                )
+
+                ToolbarButton(
+                    onSelect = {
+                        // Handle HTR button click
+                        if (isStrokeSelectionOpen) {
+                            removeStrokeOptionPanelRect()
+                        }
+
+                        // Use the passed coroutineScope instead
+                        coroutineScope.launch {
+                            state.isRecognizingText = true
+                            val result = page.recognizeText()
+                            println("Recognized Text: $result")
+                            state.isRecognizingText = false
+                        }
+                    },
+                    imageVector = Icons.Default.TextFormat,
+                    isSelected = state.isRecognizingText,
+                    contentDescription = "Recognize Text"
                 )
 
                 Box(
