@@ -488,39 +488,41 @@ fun Toolbar(
                     )
                 }
             }
+            if (searchManager.isSearchVisible) {
+                SearchComponent(
+                    isVisible = true,
+                    onClose = { searchManager.isSearchVisible = false },
+                    onSearch = { query ->
+                        coroutineScope.launch {
+                            searchManager.search(query, page)
+                        }
+                    },
+                    onNext = {
+                        searchManager.nextResult()
+                        coroutineScope.launch {
+                            searchManager.getCurrentResult()?.let { result ->
+                                // Scroll to result position
+                                viewportTransformer.scrollToPosition(result.yPosition)
+                                DrawingManager.refreshUi.emit(Unit)
+                            }
+                        }
+                    },
+                    onPrevious = {
+                        searchManager.previousResult()
+                        coroutineScope.launch {
+                            searchManager.getCurrentResult()?.let { result ->
+                                // Scroll to result position
+                                viewportTransformer.scrollToPosition(result.yPosition)
+                                DrawingManager.refreshUi.emit(Unit)
+                            }
+                        }
+                    },
+                    isSearching = searchManager.isSearching,
+                    resultsCount = searchManager.searchResults.collectAsState().value.size,
+                    currentResult = searchManager.currentResultIndex
+                )
+            }
         }
-        SearchComponent(
-            isVisible = searchManager.isSearchVisible,
-            onClose = { searchManager.isSearchVisible = false },
-            onSearch = { query ->
-                coroutineScope.launch {
-                    searchManager.search(query, page)
-                }
-            },
-            onNext = {
-                searchManager.nextResult()
-                coroutineScope.launch {
-                    searchManager.getCurrentResult()?.let { result ->
-                        // Scroll to result position
-                        viewportTransformer.scrollToPosition(result.yPosition)
-                        DrawingManager.refreshUi.emit(Unit)
-                    }
-                }
-            },
-            onPrevious = {
-                searchManager.previousResult()
-                coroutineScope.launch {
-                    searchManager.getCurrentResult()?.let { result ->
-                        // Scroll to result position
-                        viewportTransformer.scrollToPosition(result.yPosition)
-                        DrawingManager.refreshUi.emit(Unit)
-                    }
-                }
-            },
-            isSearching = searchManager.isSearching,
-            resultsCount = searchManager.searchResults.collectAsState().value.size,
-            currentResult = searchManager.currentResultIndex
-        )
     } else {
         ToolbarButton(
             onSelect = { state.isToolbarOpen = true },
