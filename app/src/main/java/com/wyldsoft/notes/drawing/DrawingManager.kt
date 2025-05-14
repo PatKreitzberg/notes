@@ -248,14 +248,28 @@ class DrawingManager(
                 return@filter false
             }
 
-            // Second check: perform a sparse sampling of points
-            // Only test a maximum of 5 points per stroke to reduce computational load
-            val pointsToTest = if (stroke.points.size <= 5) {
-                stroke.points
+            // Second check: sample points based on the stroke's length
+            // Use at most 20 points for very long strokes, and at least 3 for short strokes
+            val totalPoints = stroke.points.size
+            val sampleSize = when {
+                totalPoints < 10 -> totalPoints  // For very short strokes, use all points
+                totalPoints < 50 -> totalPoints / 3  // For medium strokes, test ~33%
+                totalPoints < 200 -> totalPoints / 10  // For longer strokes, test ~10%
+                else -> 20  // Cap at 20 points for very long strokes
+            }.coerceAtLeast(3) // Always test at least 3 points
+
+            // Create evenly distributed indices to sample
+            val pointsToTest = if (sampleSize >= totalPoints) {
+                stroke.points  // Use all points if sample size would be all points
             } else {
-                // Take evenly distributed points
-                val step = stroke.points.size / 5
-                (0 until 5).map { idx -> stroke.points[idx * step.coerceAtLeast(1)] }
+                // Calculate step size to distribute points evenly
+                val step = (totalPoints - 1).toFloat() / (sampleSize - 1).toFloat()
+
+                // Generate evenly distributed indices
+                (0 until sampleSize).map { i ->
+                    val index = (i * step).toInt().coerceIn(0, totalPoints - 1)
+                    stroke.points[index]
+                }
             }
 
             // Check if any of the sampled points are inside the path region
