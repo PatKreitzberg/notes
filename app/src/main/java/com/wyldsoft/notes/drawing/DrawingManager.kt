@@ -150,6 +150,7 @@ class DrawingManager(
         points: List<SimplePointF>,
         eraser: com.wyldsoft.notes.utils.Eraser
     ) {
+        println("erase: handleErase start")
         val path = android.graphics.Path()
         if (points.isEmpty()) return
 
@@ -164,7 +165,7 @@ class DrawingManager(
         }
 
         var outPath = android.graphics.Path()
-
+        println("erase: handleErase check 1")
         if (eraser == com.wyldsoft.notes.utils.Eraser.SELECT) {
             path.close()
             outPath = path
@@ -179,13 +180,17 @@ class DrawingManager(
             paint.getFillPath(path, outPath)
         }
 
+        println("erase: handleErase check 2")
         // only need to check visibleStrokes since user cant erase stroke that is not visible
         val deletedStrokes = selectStrokesFromPath(page.visibleStrokes, outPath)
-        val deletedStrokeIds = deletedStrokes.map { it.id }
 
+        println("erase: handleErase check 2.5")
+        val deletedStrokeIds = deletedStrokes.map { it.id }
+        println("erase: handleErase check 2.75")
         // Skip if no strokes to delete
         if (deletedStrokes.isEmpty()) return
 
+        println("erase: handleErase check 3")
         // Record in history for undo/redo before removing
         historyManager?.let { manager ->
             if (deletedStrokes.isNotEmpty()) {
@@ -200,7 +205,7 @@ class DrawingManager(
                 )
             }
         }
-
+        println("erase: handleErase check 4")
         // Remove the strokes
         page.removeStrokes(deletedStrokeIds)
 
@@ -212,43 +217,53 @@ class DrawingManager(
                 getStrokeBounds(deletedStrokes).bottom.toInt()
             )
         )
+        println("erase: handleErase check end")
     }
 
     private fun selectStrokesFromPath(strokes: List<Stroke>, path: android.graphics.Path): List<Stroke> {
-        val bounds = RectF()
-        path.computeBounds(bounds, true)
+        // Get the bounds of the path
+        val pathBounds = RectF()
+        path.computeBounds(pathBounds, true)
 
-        // Instead of using Region.setPath, we'll check points against the path directly
-        return strokes.filter {
-            val strokeBounds = RectF(it.left, it.top, it.right, it.bottom)
-            println("stroke bounds $strokeBounds")
-            // First check: bounding box intersection
-            val intersects = RectF.intersects(strokeBounds, bounds)
+        // Convert path to a Region for faster hit testing
+        val pathRegion = android.graphics.Region()
+        pathRegion.setPath(
+            path,
+            android.graphics.Region(
+                pathBounds.left.toInt(),
+                pathBounds.top.toInt(),
+                pathBounds.right.toInt(),
+                pathBounds.bottom.toInt()
+            )
+        )
 
-            intersects
-        }.filter {
-            // Second check: points inside path
-            val containsPoint = it.points.any { point ->
-                // Check if the point is within the path
-                val bounds = RectF()
-                path.computeBounds(bounds, true)
+        // First filter: only consider strokes whose bounding boxes intersect with the path bounds
+        return strokes.filter { stroke ->
+            val strokeBounds = RectF(stroke.left, stroke.top, stroke.right, stroke.bottom)
 
-                var ret = true
-                // Quick check: if point is outside bounds, it's definitely not in path
-                if (point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom) {
-                    ret = false
-                }
+            // First quick check: bounding box intersection
+            val intersects = RectF.intersects(strokeBounds, pathBounds)
 
-                // Use Path.contains for more accurate check
-                if (ret) {
-                    ret = path.isPointInPath(point.x, point.y)
-                }
-                ret
+            if (!intersects) {
+                return@filter false
             }
-            containsPoint
+
+            // Second check: perform a sparse sampling of points
+            // Only test a maximum of 5 points per stroke to reduce computational load
+            val pointsToTest = if (stroke.points.size <= 5) {
+                stroke.points
+            } else {
+                // Take evenly distributed points
+                val step = stroke.points.size / 5
+                (0 until 5).map { idx -> stroke.points[idx * step.coerceAtLeast(1)] }
+            }
+
+            // Check if any of the sampled points are inside the path region
+            pointsToTest.any { point ->
+                pathRegion.contains(point.x.toInt(), point.y.toInt())
+            }
         }
     }
-
 
 
     // Extension function for Path

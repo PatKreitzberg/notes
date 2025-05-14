@@ -204,6 +204,7 @@ class PageView(
     }
 
     fun removeStrokes(strokeIds: List<String>) {
+        println("erase: removeStrokes start")
         // Remove the strokes
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
 
@@ -222,7 +223,9 @@ class PageView(
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
         }
+
         updateVisibleStrokes()
+        println("erase: removeStrokes end")
     }
 
     private fun computeHeight() {
