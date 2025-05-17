@@ -139,7 +139,7 @@ class TouchEventHandler(
         }
 
         override fun onRawDrawingTouchPointListReceived(plist: TouchPointList) {
-            //println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points")
+            println("DEBUG: onRawDrawingTouchPointListReceived with ${plist.size()} points---------------------------------------------")
             val points = plist
 
             // Now use the adjusted touch points for drawing operations
@@ -184,6 +184,7 @@ class TouchEventHandler(
                     }
                 }
             }
+            println("DEBUG: onRawDrawingTouchPointListReceived End=================================================================\n\n")
         }
 
         override fun onBeginRawErasing(p0: Boolean, p1: com.onyx.android.sdk.data.note.TouchPoint?) {

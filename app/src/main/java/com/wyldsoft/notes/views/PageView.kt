@@ -187,6 +187,9 @@ class PageView(
         indexStrokes()
         persistBitmapDebounced()
 
+        // add strokes to _visibleStrokes
+        strokesToAdd.forEach { stroke -> _visibleStrokes.add(stroke)}
+
         // Notify that strokes have been added
         coroutineScope.launch {
             _strokesAdded.emit(strokesToAdd)
@@ -200,13 +203,18 @@ class PageView(
                 }
             }
         }
-        updateVisibleStrokes()
+
+
     }
 
     fun removeStrokes(strokeIds: List<String>) {
         println("erase: removeStrokes start")
         // Remove the strokes
         strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
+        println("removeStrokes: before")
+
+        _visibleStrokes.removeIf { s -> strokeIds.contains(s.id) }
+        println("removeStrokes: after")
 
         indexStrokes()
         computeHeight()
@@ -223,9 +231,6 @@ class PageView(
                 app.syncManager.changeTracker.registerNoteChanged(id)
             }
         }
-
-        updateVisibleStrokes()
-        println("erase: removeStrokes end")
     }
 
     private fun computeHeight() {
@@ -347,8 +352,29 @@ class PageView(
         return RectF(stroke.left, stroke.top, stroke.right, stroke.bottom)
     }
 
+//    fun isStrokeVisible(stroke: Stroke): Boolean {
+//        return viewportTransformer.isRectVisible(strokeBounds(stroke))
+//    }
+
     fun isStrokeVisible(stroke: Stroke): Boolean {
-        return viewportTransformer.isRectVisible(strokeBounds(stroke))
+        val strokeRect = strokeBounds(stroke)
+
+        // Expand stroke bounds slightly to ensure we don't miss strokes at edges
+        val expandedRect = RectF(
+            strokeRect.left - stroke.size,
+            strokeRect.top - stroke.size,
+            strokeRect.right + stroke.size,
+            strokeRect.bottom + stroke.size
+        )
+
+        val isVisible = viewportTransformer.isRectVisible(expandedRect)
+
+        // For debugging
+        if (!isVisible && viewportTransformer.isRectVisible(strokeRect)) {
+            println("DEBUG: Potential visibility inconsistency for stroke ${stroke.id}")
+        }
+
+        return isVisible
     }
 
     fun drawStroke(canvas: Canvas, stroke: Stroke) {

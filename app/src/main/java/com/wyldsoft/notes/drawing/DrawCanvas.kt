@@ -295,6 +295,7 @@ class DrawCanvas(
         touchEventHandler.setRawDrawingEnabled(true)
     }
 
+
     suspend fun refreshUiSuspend() {
         if (!state.isDrawing) {
             waitForDrawing()

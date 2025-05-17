@@ -140,6 +140,11 @@ class DrawingManager(
                 )
             ).also { println("undo: Added stroke action to history") }
                 ?: println("undo: Could not add stroke action to history - manager is null")
+
+            // Explicitly force refresh
+            kotlinx.coroutines.GlobalScope.launch {
+                refreshUi.emit(Unit)
+            }
         } catch (e: Exception) {
             println("DEBUG ERROR: Handle Draw: ${e.message}")
             e.printStackTrace()
