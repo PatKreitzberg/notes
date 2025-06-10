@@ -37,7 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.wyldsoft.notes.NotesApp
-import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager
 import com.wyldsoft.notes.components.EditorSurface
 import com.wyldsoft.notes.components.ScrollIndicator
 import com.wyldsoft.notes.components.Toolbar

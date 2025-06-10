@@ -28,7 +28,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.wyldsoft.notes.ui.theme.NotesTheme
-import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager
 import com.wyldsoft.notes.classes.LocalSnackContext
 import com.wyldsoft.notes.classes.SnackBar
 import com.wyldsoft.notes.classes.SnackState

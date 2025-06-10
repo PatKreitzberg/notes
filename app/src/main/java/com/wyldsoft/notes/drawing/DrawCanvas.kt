@@ -5,9 +5,10 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.snapshotFlow
 import android.util.Log
-import com.wyldsoft.notes.classes.drawing.CanvasRenderer
-import com.wyldsoft.notes.classes.drawing.DrawingManager
-import com.wyldsoft.notes.classes.drawing.TouchEventHandler
+import com.wyldsoft.notes.rendering.CanvasRenderer
+import com.wyldsoft.notes.strokeManagement.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager.Companion as DrawingManagerCompanion
+import com.wyldsoft.notes.drawing.TouchEventHandlerBridge
 import com.wyldsoft.notes.utils.EditorState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -40,7 +41,7 @@ class DrawCanvas(
     private val TAG="DrawCanvas:"
     private lateinit var selectionHandler: SelectionHandler
     private lateinit var canvasRenderer: CanvasRenderer
-    private lateinit var touchEventHandler: TouchEventHandler
+    private lateinit var touchEventHandler: TouchEventHandlerBridge
     //private var gestureNotifier = GestureNotifier()
     private var historyManager: HistoryManager? = null
 
@@ -76,7 +77,7 @@ class DrawCanvas(
         )
 
         // Initialize touch event handler
-        touchEventHandler = TouchEventHandler(
+        touchEventHandler = TouchEventHandlerBridge(
             context,
             this,
             coroutineScope,

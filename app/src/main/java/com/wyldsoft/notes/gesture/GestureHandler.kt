@@ -4,7 +4,7 @@ package com.wyldsoft.notes.gesture
 import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -287,7 +287,7 @@ class GestureHandler(
                 // But for now, we'll just use the history manager
 
                 // Create a new DrawingManager with the history manager
-                val drawingManager = com.wyldsoft.notes.classes.drawing.DrawingManager(
+                val drawingManager = com.wyldsoft.notes.strokeManagement.DrawingManager(
                     page = app.activePageView ?: return@launch,
                     historyManager = historyManager
                 )
@@ -297,8 +297,8 @@ class GestureHandler(
 
                 // If successful, emit an event to refresh the UI
                 if (success) {
-                    com.wyldsoft.notes.classes.drawing.DrawingManager.undoRedoPerformed.emit(Unit)
-                    com.wyldsoft.notes.classes.drawing.DrawingManager.refreshUi.emit(Unit)
+                    com.wyldsoft.notes.strokeManagement.DrawingManager.undoRedoPerformed.emit(Unit)
+                    com.wyldsoft.notes.strokeManagement.DrawingManager.refreshUi.emit(Unit)
                     println("Successfully performed ${if (isUndo) "undo" else "redo"} operation")
                 } else {
                     println("No action to ${if (isUndo) "undo" else "redo"}")

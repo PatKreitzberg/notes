@@ -4,7 +4,7 @@ package com.wyldsoft.notes.search
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 
 /**
  * Handles highlighting of search results on the canvas

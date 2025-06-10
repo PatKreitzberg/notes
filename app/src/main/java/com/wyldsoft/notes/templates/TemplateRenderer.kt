@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.wyldsoft.notes.pagination.PaginationManager
 import com.wyldsoft.notes.settings.PaperSize
 import com.wyldsoft.notes.settings.TemplateType
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import com.wyldsoft.notes.utils.convertDpToPixel
 
 /**

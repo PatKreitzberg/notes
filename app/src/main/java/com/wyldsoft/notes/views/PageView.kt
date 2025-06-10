@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import androidx.core.graphics.createBitmap
 import com.wyldsoft.notes.history.HistoryManager
 import com.wyldsoft.notes.settings.SettingsRepository
@@ -164,7 +164,7 @@ class PageView(
 
                 // Make sure to refresh the display
                 coroutineScope.launch {
-                    com.wyldsoft.notes.classes.drawing.DrawingManager.forceUpdate.emit(rect)
+                    com.wyldsoft.notes.strokeManagement.DrawingManager.forceUpdate.emit(rect)
                 }
             }
         }

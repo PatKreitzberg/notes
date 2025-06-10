@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 
 @Composable
 fun TopBoundaryIndicator(

@@ -7,7 +7,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
-import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager
 import com.wyldsoft.notes.history.ActionType
 import com.wyldsoft.notes.utils.EditorState
 import com.wyldsoft.notes.history.HistoryAction

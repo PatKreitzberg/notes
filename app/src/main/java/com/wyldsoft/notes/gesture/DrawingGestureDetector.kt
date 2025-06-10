@@ -1,15 +1,15 @@
-// app/src/main/java/com/wyldsoft/notes/gesture/DrawingGestureDetector.kt
 package com.wyldsoft.notes.gesture
 
 import android.content.Context
 import android.os.CountDownTimer
+import android.util.Log
 import android.view.MotionEvent
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlin.math.sqrt
 
 import com.wyldsoft.notes.utils.convertDpToPixel
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 
 class DrawingGestureDetector(
     context: Context,
@@ -188,10 +188,13 @@ class DrawingGestureDetector(
      */
     fun onTouchEvent(event: MotionEvent): Boolean {
         fun updateScrollingVars(deltaX: Float, deltaY: Float) {
-            viewportTransformer.scroll(deltaX, deltaY, true)
+            viewportTransformer.scroll(deltaX, deltaY)
             lastTouchX = event.x
             lastTouchY = event.y
         }
+
+
+
         // Check if this is a stylus input - if so, ignore for gesture detection
         val isStylusInput = isStylusEvent(event)
         if (isStylusInput) {
@@ -205,6 +208,7 @@ class DrawingGestureDetector(
         // Handle pinch-to-zoom gestures
         when (action) {
             MotionEvent.ACTION_POINTER_DOWN -> {
+                Log.d("GestureDetector", "ACTION POINTER DOWN")
                 // Start pinch when second pointer is down
                 if (event.pointerCount == 2) {
                     startPinch(event)
@@ -213,6 +217,7 @@ class DrawingGestureDetector(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                Log.d("GestureDetector", "ACTION MOVE")
                 // Handle pinch movement
                 if (isZooming) {
                     handlePinch(event)
@@ -236,6 +241,7 @@ class DrawingGestureDetector(
             }
 
             MotionEvent.ACTION_POINTER_UP -> {
+                Log.d("GestureDetector", "ACTION POINTER UP")
                 // Check if one of our active pointers is going up
                 val pointerId = event.getPointerId(event.actionIndex)
                 if (pointerId == activePointerId1 || pointerId == activePointerId2) {
@@ -244,12 +250,14 @@ class DrawingGestureDetector(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                Log.d("GestureDetector", "ACTION UP CANCEL")
                 // End any ongoing pinch
                 endPinch()
                 actionUpOrActionCancel(event, action == MotionEvent.ACTION_UP, currentTime)
             }
 
             MotionEvent.ACTION_DOWN -> {
+                Log.d("GestureDetector", "ACTION DOWN")
                 // First finger down - start tracking a new gesture
                 lastTouchX = event.x
                 initialX = event.x

@@ -18,7 +18,7 @@ import com.wyldsoft.notes.settings.PaperSize
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.settings.TemplateType
 import com.wyldsoft.notes.templates.TemplateRenderer
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import com.wyldsoft.notes.views.PageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

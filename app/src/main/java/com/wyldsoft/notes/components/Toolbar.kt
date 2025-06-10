@@ -34,9 +34,9 @@ import com.wyldsoft.notes.utils.PlacementMode
 import com.wyldsoft.notes.utils.Pen
 import com.wyldsoft.notes.utils.PenSetting
 import kotlinx.coroutines.launch
-import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager
 import com.wyldsoft.notes.settings.SettingsRepository
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import com.wyldsoft.notes.templates.TemplateRenderer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
@@ -140,7 +140,7 @@ fun Toolbar(
     LaunchedEffect(isStrokeSelectionOpen) {
         // Notify the DrawingManager about panel state changes
         println("LauncedEffect isStrokeSelectionOpen $isStrokeSelectionOpen")
-        com.wyldsoft.notes.classes.drawing.DrawingManager.isStrokeOptionsOpen.emit(isStrokeSelectionOpen)
+        com.wyldsoft.notes.strokeManagement.DrawingManager.isStrokeOptionsOpen.emit(isStrokeSelectionOpen)
 
         // Remove the rect when panel is closed
         if (!isStrokeSelectionOpen) {

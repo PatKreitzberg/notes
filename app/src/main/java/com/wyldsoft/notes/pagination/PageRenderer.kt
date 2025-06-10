@@ -6,7 +6,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import androidx.compose.ui.unit.dp
-import com.wyldsoft.notes.transform.ViewportTransformer
+import com.wyldsoft.notes.refreshingScreen.ViewportTransformer
 import com.wyldsoft.notes.utils.convertDpToPixel
 import com.wyldsoft.notes.settings.SettingsRepository
 import com.wyldsoft.notes.templates.TemplateRenderer

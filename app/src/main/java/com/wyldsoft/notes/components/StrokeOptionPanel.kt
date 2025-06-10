@@ -32,7 +32,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wyldsoft.notes.classes.drawing.DrawingManager
+import com.wyldsoft.notes.strokeManagement.DrawingManager
 import com.wyldsoft.notes.utils.PenSetting
 import com.wyldsoft.notes.utils.noRippleClickable
 
